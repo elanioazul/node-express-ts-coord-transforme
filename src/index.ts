@@ -2,8 +2,7 @@ import express from 'express';
 
 const app = express();
 
-app.listen(5000, () => {
-    console.log('Listening in port 5000');
-    
-})
+app.listen(4000);
+console.log('Server listening on port 4000');
+
 
