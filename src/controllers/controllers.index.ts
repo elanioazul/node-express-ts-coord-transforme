@@ -33,13 +33,12 @@ export const insertInitialCoords = async (req: Request, res: Response) => {
         const lat =  pairOfCoords.split(' ')[1];
         let conn = (await miPool).getConnection();
         let result = (await conn).execute(
-            `INSERT INTO TEMP_COORDINATES_INITIAL VALUES (:ID, :LON, :LAT, :EPSG_CODE, :EPSG_DESC)`,
+            `INSERT INTO TEMP_COORDINATES_INITIAL VALUES (:ID, :LONGITUDE, :LATITUDE, :SRID)`,
             { 
                 ID: { val: null},
-                LON : {val: lon}, 
-                LAT : {val: lat}, 
-                EPSG_CODE: {val: 'EPSG:23031'}, 
-                EPSG_DESC: {val: 'ED50 / UTM zone 31N'}
+                LONGITUDE : {val: lon}, 
+                LATITUDE : {val: lat}, 
+                SRID: {val: '4258'}
             },
             { autoCommit: true }
         );
