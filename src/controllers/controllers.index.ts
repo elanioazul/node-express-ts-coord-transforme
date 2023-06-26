@@ -12,7 +12,7 @@ export const getInitialCoords = async  (req: Request, res: Response): Promise<Re
         const conn = (await miPool).getConnection();
         const result = (await conn).execute(
             `
-            Select * from GIS.TEMP_COORDINATES_INITIAL
+            Select * from SEM_CHR_GIS.TEMP_COORDINATES_INITIAL
             `
         )
         console.log('number of records in Initail coord table', (await result).rows?.length);

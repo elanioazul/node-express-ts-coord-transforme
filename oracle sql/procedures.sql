@@ -1,3 +1,7 @@
+/*
+PASOS PARA LANZAR EN LOCAL LA BD ORACLE
+*/
+
 --docker run -d --name oracle-db -p 1521:1521 -e ORACLE_PWD=test container-registry.oracle.com/database/enterprise:latest
 
 --me conecto (aunque tarda un rato la conexion en hacerse correctamente) con sqldeveloper a la bd que corre el container con:
@@ -72,3 +76,10 @@ INSERT INTO TEMP_COORDINATES_INITIAL (ID, longitude, latitude, srid) VALUES (NUL
 
 -- lo consulto y debo ver las 3 filas de la tabla
 select * from TEMP_COORDINATES_INITIAL;
+
+
+
+/*
+PASOS PARA REPLICAR ESTO MISMO EN LA BD ORACLE QAS DEL PROYECTO ES LO MISMO PERO CAMBIANDO EN ARCHVO .ENV CON LAS CREDENCIALES DE CONEXIÓN.
+TAMPOCO ES NECESARIO LA CREACION DE USUARIO GIS PORQUE YA HAY UNO CREADO DE PRUEBAS, "SEM_CHR_GIS"
+*/
