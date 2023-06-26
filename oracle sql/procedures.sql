@@ -48,10 +48,13 @@ END;
 
 CREATE TABLE TEMP_COORDINATES_TRANSFORMED (
     ID NUMBER NOT NULL,
-    original_coordinates_id NUMBER,
+    initial_coordinates_id NUMBER,
+    longitude NUMBER,
+    latitude NUMBER,
+    srid NUMBER,
     transformed_geometry SDO_GEOMETRY,
     CONSTRAINT PK_TEMP_COORDINATES_TRANSFORMED PRIMARY KEY (ID),
-    CONSTRAINT FK_TEMP_COORDINATES_TRANSFORMED FOREIGN KEY (original_coordinates_id)
+    CONSTRAINT FK_TEMP_COORDINATES_TRANSFORMED FOREIGN KEY (initial_coordinates_id)
         REFERENCES TEMP_COORDINATES_INITIAL (ID)
 );
 -- create sequence to have autoincrement pk
