@@ -1,5 +1,7 @@
 /*
-PASOS PARA LANZAR EN LOCAL LA BD ORACLE
+PASOS PARA LANZAR EN LOCAL LA BD ORACLE;
+PASOS PARA REPLICAR ESTO MISMO EN LA BD ORACLE QAS DEL PROYECTO ES LO MISMO PERO CAMBIANDO EN ARCHVO .ENV CON LAS CREDENCIALES DE CONEXIÓN Y NO LANZAR EL DOCKER EN LOCAL.
+TAMPOCO ES NECESARIO LA CREACION DE USUARIO GIS PORQUE YA HAY UNO CREADO DE PRUEBAS, "SEM_CHR_GIS AL QUE APUNTO CON .ENV"
 */
 
 --docker run -d --name oracle-db -p 1521:1521 -e ORACLE_PWD=test container-registry.oracle.com/database/enterprise:latest
@@ -80,9 +82,38 @@ INSERT INTO TEMP_COORDINATES_INITIAL (ID, longitude, latitude, srid) VALUES (NUL
 -- lo consulto y debo ver las 3 filas de la tabla
 select * from TEMP_COORDINATES_INITIAL;
 
+-- procedure
 
+CREATE OR REPLACE PROCEDURE TransformPointCoodinatesAndStore(
+    pLongitude IN NUMBER,
+    pLatitude IN NUMBER,
+    selectedSrid IN NUMBER
+) AS
+    vTransformedGeometry SDO_GEOMETRY;
+    vJsonRepresentation VARCHAR2(4000);
+    vOriginalCoordinatesId NUMBER;
+BEGIN
+    -- Create the point geometry with 25831 as target srid
+    vTransformedGeometry := SDO_CS.TRANSFORM(
+        SDO_GEOMETRY(2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
+        25831
+    );
 
-/*
-PASOS PARA REPLICAR ESTO MISMO EN LA BD ORACLE QAS DEL PROYECTO ES LO MISMO PERO CAMBIANDO EN ARCHVO .ENV CON LAS CREDENCIALES DE CONEXIÓN.
-TAMPOCO ES NECESARIO LA CREACION DE USUARIO GIS PORQUE YA HAY UNO CREADO DE PRUEBAS, "SEM_CHR_GIS"
-*/
+    -- Convert the transformed geometry to JSON
+    vJsonRepresentation := SDO_Util.TO_JSON(vTransformedGeometry);
+
+    -- Store the initial coordinates and the srid selected by the user in the table and get the generated primary key
+    INSERT INTO TEMP_COORDINATES_INITIAL (longitude, latitude, srid)
+    VALUES (pLongitude, pLatitude, selectedSrid)
+    RETURNING id INTO vOriginalCoordinatesId;
+
+     -- Store the transformed coordinates foreign keying the original coordinates row
+    INSERT INTO TEMP_COORDINATES_TRANSFORMED (initial_coordinates_id, longitude, latitude, srid, transformed_geometry)
+    VALUES (vOriginalCoordinatesId, vTransformedGeometry.SDO_POINT.X, vTransformedGeometry.SDO_POINT.Y, vTransformedGeometry.SDO_SRID, vTransformedGeometry);
+
+    -- Output the JSON representation
+    DBMS_OUTPUT.PUT_LINE(vJsonRepresentation);
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('An error occurred: ' || SQLERRM);
+END;

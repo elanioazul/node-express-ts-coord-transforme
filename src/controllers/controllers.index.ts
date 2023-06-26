@@ -15,7 +15,7 @@ export const getInitialCoords = async  (req: Request, res: Response): Promise<Re
             Select * from SEM_CHR_GIS.TEMP_COORDINATES_INITIAL
             `
         )
-        console.log('number of records in Initail coord table', (await result).rows?.length);
+        console.log('number of records in Initial coord table', (await result).rows?.length);
         (await conn).close();
         return res.status(200).json((await result).rows);
 
@@ -79,10 +79,55 @@ export const transformCoords = async (req: Request, res: Response) => {
         const lon =  pairOfCoords.split(' ')[0];
         const lat =  pairOfCoords.split(' ')[1];
         let conn = (await miPool).getConnection();
-        let result = (await conn).execute(
-            `CALL TransformPointCoodinatesAndStore(${lon}, ${lat}, 4258);`
+        (await conn).execute(
+            `
+            CREATE OR REPLACE PROCEDURE TransformPointCoodinatesAndStore(
+                pLongitude IN NUMBER,
+                pLatitude IN NUMBER,
+                selectedSrid IN NUMBER
+            ) AS
+                vTransformedGeometry SDO_GEOMETRY;
+                vJsonRepresentation VARCHAR2(4000);
+                vOriginalCoordinatesId NUMBER;
+            BEGIN
+                -- Create the point geometry with 25831 as target srid
+                vTransformedGeometry := SDO_CS.TRANSFORM(
+                    SDO_GEOMETRY(2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
+                    25831
+                );
+            
+                -- Convert the transformed geometry to JSON
+                vJsonRepresentation := SDO_Util.TO_JSON(vTransformedGeometry);
+            
+                -- Store the initial coordinates and the srid selected by the user in the table and get the generated primary key
+                INSERT INTO TEMP_COORDINATES_INITIAL (id, longitude, latitude, srid)
+                VALUES (${null}, pLongitude, pLatitude, selectedSrid)
+                RETURNING id INTO vOriginalCoordinatesId;
+            
+                 -- Store the transformed coordinates foreign keying the original coordinates row
+                INSERT INTO TEMP_COORDINATES_TRANSFORMED (id, initial_coordinates_id, longitude, latitude, srid, transformed_geometry)
+                VALUES (${null}, vOriginalCoordinatesId, vTransformedGeometry.SDO_POINT.X, vTransformedGeometry.SDO_POINT.Y, vTransformedGeometry.SDO_SRID, vTransformedGeometry);
+            
+                -- Output the JSON representation
+                DBMS_OUTPUT.PUT_LINE(vJsonRepresentation);
+            EXCEPTION
+                WHEN OTHERS THEN
+                    DBMS_OUTPUT.PUT_LINE('An error occurred: ' || SQLERRM);
+            END;
+            `
         );
-        //console.log("Rows inserted: " + (await result).rowsAffected);  
+        let result = (await conn).execute(
+            `BEGIN
+                TransformPointCoodinatesAndStore(:lon, :lat, :selectedsrid);
+            END;`,
+            { 
+                lon : {val: lon}, 
+                lat : {val: lat}, 
+                selectedsrid: {val: '4258'}
+            },
+            { autoCommit: true }
+        );
+        console.log("procedure output :", (await result).outBinds);
     
         res.json({
             message: 'Initials coord transformed successfully',
