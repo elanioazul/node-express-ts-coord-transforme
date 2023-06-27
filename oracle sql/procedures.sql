@@ -84,10 +84,11 @@ select * from TEMP_COORDINATES_INITIAL;
 
 -- procedure
 
-CREATE OR REPLACE PROCEDURE TransformPointCoodinatesAndStore(
+create or replace PROCEDURE TransformPointCoodinatesAndStore(
     pLongitude IN NUMBER,
     pLatitude IN NUMBER,
-    selectedSrid IN NUMBER
+    selectedSrid IN NUMBER,
+    OUT_MESSAGE OUT VARCHAR
 ) AS
     vTransformedGeometry SDO_GEOMETRY;
     vJsonRepresentation VARCHAR2(4000);
@@ -101,19 +102,22 @@ BEGIN
 
     -- Convert the transformed geometry to JSON
     vJsonRepresentation := SDO_Util.TO_JSON(vTransformedGeometry);
-
+    
     -- Store the initial coordinates and the srid selected by the user in the table and get the generated primary key
     INSERT INTO TEMP_COORDINATES_INITIAL (longitude, latitude, srid)
     VALUES (pLongitude, pLatitude, selectedSrid)
     RETURNING id INTO vOriginalCoordinatesId;
-
-     -- Store the transformed coordinates foreign keying the original coordinates row
-    INSERT INTO TEMP_COORDINATES_TRANSFORMED (initial_coordinates_id, longitude, latitude, srid, transformed_geometry)
-    VALUES (vOriginalCoordinatesId, vTransformedGeometry.SDO_POINT.X, vTransformedGeometry.SDO_POINT.Y, vTransformedGeometry.SDO_SRID, vTransformedGeometry);
+    DBMS_OUTPUT.PUT_LINE('This transformation corresponde to the id ' || vOriginalCoordinatesId || ' of TEMP_COORDINATES_INITIAL table');
+     -- Store the transformed coordinates, referencing the foreign keying also
+    INSERT INTO TEMP_COORDINATES_TRANSFORMED (id, initial_coordinates_id, longitude, latitude, srid, transformed_geometry)
+    VALUES (TEMP_COORDINATES_TRANSFORMED_SEQ.NEXTVAL,vOriginalCoordinatesId, vTransformedGeometry.SDO_POINT.X, vTransformedGeometry.SDO_POINT.Y, vTransformedGeometry.SDO_SRID, vTransformedGeometry);
 
     -- Output the JSON representation
     DBMS_OUTPUT.PUT_LINE(vJsonRepresentation);
+
+    OUT_MESSAGE := 'SUCCESS';
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('An error occurred: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('The occured exception is -: ' || SQLERRM || SQLCODE);
+        OUT_MESSAGE := 'FAILURE';
 END;
