@@ -121,3 +121,22 @@ EXCEPTION
         DBMS_OUTPUT.PUT_LINE('The occured exception is -: ' || SQLERRM || SQLCODE);
         OUT_MESSAGE := 'FAILURE';
 END;
+
+
+--tabla para poblar el dropdown de tipo de coordenda
+CREATE TABLE TEMP_COORDINATES_SYSTEMS (
+    ID NUMBER NOT NULL,
+    epsg NUMBER,
+    epsg_desc VARCHAR2(200),
+    label VARCHAR2(200),
+    label_advance VARCHAR2(200),
+    CONSTRAINT PK_TEMP_COORDINATES_SYSTEMS PRIMARY KEY (ID)
+);
+
+INSERT INTO TEMP_COORDINATES_SYSTEMS (ID, epsg, epsg_desc, label, label_advance) VALUES (1, 4326, 'EPSG 4326 - WGS84', 'gps grados, minutos y segundos', 'WGS84 Geograficas (4326) GMS');
+INSERT INTO TEMP_COORDINATES_SYSTEMS (ID, epsg, epsg_desc, label, label_advance) VALUES (2, 4326, 'EPSG 4326 - WGS84', 'gps grados decimales', 'WGS84 Geograficas (4326) GD');
+INSERT INTO TEMP_COORDINATES_SYSTEMS (ID, epsg, epsg_desc, label, label_advance) VALUES (3, 3857, 'EPSG:3857 - WGS 84', 'x e y psudomercator (metros)', 'WGS84 PsueudoMercator(3857)');
+INSERT INTO TEMP_COORDINATES_SYSTEMS (ID, epsg, epsg_desc, label, label_advance) VALUES (4, 23031, 'EPSG:23031 - ED50 / UTM zone 31N', 'ed50 utm (metros)', 'ED50 / UTM zone 31N');
+INSERT INTO TEMP_COORDINATES_SYSTEMS (ID, epsg, epsg_desc, label, label_advance) VALUES (5, 4258, 'EPSG:4258 - ETRS89', 'etrs89 geograficas grados decimales', 'ETRS Geograficas (4258) GD');
+INSERT INTO TEMP_COORDINATES_SYSTEMS (ID, epsg, epsg_desc, label, label_advance) VALUES (6, 4258, 'EPSG:4258 - ETRS89', 'etrs89 geograficas grados, minutos y segundos', 'ETRS Geograficas (4258) GMS');
+INSERT INTO TEMP_COORDINATES_SYSTEMS (ID, epsg, epsg_desc, label, label_advance) VALUES (7, 25831, 'EPSG:25831 - ETRS89 / UTM zone 31N', 'etrs89 catalunya proyectadas (metros)', 'ETRS89 UTM huso 31N (25831)');
