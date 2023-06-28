@@ -100,7 +100,9 @@ export const transformCoords = async (req: Request, res: Response) => {
                 pLongitude IN NUMBER,
                 pLatitude IN NUMBER,
                 selectedSrid IN NUMBER,
-                OUT_MESSAGE OUT VARCHAR
+                OUT_MESSAGE OUT VARCHAR,
+                OUT_LONGITUDE OUT NUMBER,
+                OUT_LATITUDE OUT NUMBER
             ) AS
                 vTransformedGeometry SDO_GEOMETRY;
                 vJsonRepresentation VARCHAR2(4000);
@@ -128,27 +130,34 @@ export const transformCoords = async (req: Request, res: Response) => {
                 -- Output the JSON representation
                 DBMS_OUTPUT.PUT_LINE(vJsonRepresentation);
             
+                -- Set the OUT parameters
                 OUT_MESSAGE := 'COORDINATES TRANSFORMATION SUCCESS';
+                OUT_LONGITUDE := vTransformedGeometry.SDO_POINT.X;
+                OUT_LATITUDE := vTransformedGeometry.SDO_POINT.Y;
             EXCEPTION
                 WHEN OTHERS THEN
                     DBMS_OUTPUT.PUT_LINE('The occured exception is -: ' || SQLERRM || SQLCODE);
                     OUT_MESSAGE := 'COORDINATES TRANSFORMATION FAILURE';
+                    OUT_LONGITUDE := NULL;
+                    OUT_LATITUDE := NULL;
             END;
             `
         );
         let result = (await conn).execute(
             `BEGIN
-                TransformPointCoodinatesAndStore(:pLongitude, :pLatitude, :selectedSrid, :OUT_MESSAGE);
+                TransformPointCoodinatesAndStore(:pLongitude, :pLatitude, :selectedSrid, :OUT_MESSAGE, :OUT_LONGITUDE, :OUT_LATITUDE);
             END;`,
             { 
                 pLongitude : { val: lonFloat }, 
                 pLatitude : { val: latFloat }, 
                 selectedSrid: { val: epsgSelected },
-                OUT_MESSAGE: { dir: oracledb.BIND_OUT, type: oracledb.STRING }
+                OUT_MESSAGE: { dir: oracledb.BIND_OUT, type: oracledb.STRING },
+                OUT_LONGITUDE: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER  },
+                OUT_LATITUDE: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER  }
             },
             { autoCommit: true }
         );
-        console.log("procedure output :", (await result).outBinds);
+        console.log("procedure outputs :", (await result).outBinds);
     
         res.json({
             message: 'Coords transformed successfully',
