@@ -115,17 +115,16 @@ export const transformCoords = async (req: Request, res: Response) => {
             
                 -- Convert the transformed geometry to JSON
                 vJsonRepresentation := SDO_Util.TO_JSON(vTransformedGeometry);
-                
-                -- Store the initial coordinates and the srid selected by the user in the table and get the generated primary key
+            
+                -- Store the initial coordinates and the srid selected by the user and get the generated primary key
                 INSERT INTO TEMP_COORDINATES_INITIAL (longitude, latitude, srid)
                 VALUES (pLongitude, pLatitude, selectedSrid)
                 RETURNING id INTO vOriginalCoordinatesId;
-
                 DBMS_OUTPUT.PUT_LINE('This transformation corresponde to the id ' || vOriginalCoordinatesId || ' of TEMP_COORDINATES_INITIAL table');
-
-                 -- Store the transformed coordinates, referencing the foreign keying also
-                INSERT INTO TEMP_COORDINATES_TRANSFORMED (id, initial_coordinates_id, longitude, latitude, srid, transformed_geometry)
-                VALUES (TEMP_COORDINATES_TRANSFORMED_SEQ.NEXTVAL,vOriginalCoordinatesId, vTransformedGeometry.SDO_POINT.X, vTransformedGeometry.SDO_POINT.Y, vTransformedGeometry.SDO_SRID, vTransformedGeometry);
+            
+                -- Store the transformed coordinates, referencing the foreign key also
+                INSERT INTO TEMP_COORDINATES_TRANSFORMED (initial_coordinates_id, longitude, latitude, srid, transformed_geometry)
+                VALUES (vOriginalCoordinatesId, vTransformedGeometry.SDO_POINT.X, vTransformedGeometry.SDO_POINT.Y, vTransformedGeometry.SDO_SRID, vTransformedGeometry);
             
                 -- Output the JSON representation
                 DBMS_OUTPUT.PUT_LINE(vJsonRepresentation);
