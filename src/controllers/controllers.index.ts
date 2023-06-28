@@ -158,9 +158,6 @@ export const transformCoords = async (req: Request, res: Response) => {
             { autoCommit: true }
         );
         console.log("procedure outputs :", (await result).outBinds);
-        console.log("procedure outputs :", (await result as any).outBinds.OUT_MESSAGE);
-        console.log("procedure outputs :", (await result as any).outBinds.OUT_LONGITUDE);
-        console.log("procedure outputs :", (await result as any).outBinds.OUT_LATITUDE);
 
         let proccedureStatus = (await result as any).outBinds.OUT_MESSAGE;
         let transformedLon = (await result as any).outBinds.OUT_LONGITUDE;

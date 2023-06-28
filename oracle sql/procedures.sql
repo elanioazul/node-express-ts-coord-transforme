@@ -78,53 +78,6 @@ INSERT INTO TEMP_COORDINATES_INITIAL (ID, longitude, latitude, srid) VALUES (1.4
 INSERT INTO TEMP_COORDINATES_INITIAL (ID, longitude, latitude, srid) VALUES (1.395264, 42.313878, 4258)
 INSERT INTO TEMP_COORDINATES_INITIAL (ID, longitude, latitude, srid) VALUES (2.147827, 41.590797, 4258)
 
-
--- lo consulto y debo ver las 3 filas de la tabla
-select * from TEMP_COORDINATES_INITIAL;
-
--- procedure
-
-create or replace PROCEDURE TransformPointCoodinatesAndStore(
-    pLongitude IN NUMBER,
-    pLatitude IN NUMBER,
-    selectedSrid IN NUMBER,
-    OUT_MESSAGE OUT VARCHAR
-) AS
-    vTransformedGeometry SDO_GEOMETRY;
-    vJsonRepresentation VARCHAR2(4000);
-    vOriginalCoordinatesId NUMBER;
-BEGIN
-    -- Create the point geometry with 25831 as target srid
-    vTransformedGeometry := SDO_CS.TRANSFORM(
-        SDO_GEOMETRY(2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
-        25831
-    );
-
-    -- Convert the transformed geometry to JSON
-    vJsonRepresentation := SDO_Util.TO_JSON(vTransformedGeometry);
-    
-    -- Store the initial coordinates and the srid selected by the user and get the generated primary key
-    INSERT INTO TEMP_COORDINATES_INITIAL (longitude, latitude, srid)
-    VALUES (pLongitude, pLatitude, selectedSrid)
-    RETURNING id INTO vOriginalCoordinatesId;
-    DBMS_OUTPUT.PUT_LINE('This transformation corresponde to the id ' || vOriginalCoordinatesId || ' of TEMP_COORDINATES_INITIAL table');
-    
-    -- Store the transformed coordinates, referencing the foreign key also
-    INSERT INTO TEMP_COORDINATES_TRANSFORMED (initial_coordinates_id, longitude, latitude, srid, transformed_geometry)
-    VALUES (vOriginalCoordinatesId, vTransformedGeometry.SDO_POINT.X, vTransformedGeometry.SDO_POINT.Y, vTransformedGeometry.SDO_SRID, vTransformedGeometry);
-
-    -- Output the JSON representation
-    DBMS_OUTPUT.PUT_LINE(vJsonRepresentation);
-
-    OUT_MESSAGE := 'SUCCESS';
-EXCEPTION
-    WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('The occured exception is -: ' || SQLERRM || SQLCODE);
-        OUT_MESSAGE := 'FAILURE';
-END;
-
-
---tabla para poblar el dropdown de tipo de coordenda
 CREATE TABLE TEMP_COORDINATES_SYSTEMS (
     ID NUMBER GENERATED ALWAYS as IDENTITY(START with 1 INCREMENT by 1),
     epsg NUMBER,
@@ -141,3 +94,5 @@ INSERT INTO TEMP_COORDINATES_SYSTEMS (epsg, epsg_desc, label, label_advance) VAL
 INSERT INTO TEMP_COORDINATES_SYSTEMS (epsg, epsg_desc, label, label_advance) VALUES (4258, 'EPSG:4258 - ETRS89', 'etrs89 geograficas grados decimales', 'ETRS Geograficas (4258) GD');
 INSERT INTO TEMP_COORDINATES_SYSTEMS (epsg, epsg_desc, label, label_advance) VALUES (4258, 'EPSG:4258 - ETRS89', 'etrs89 geograficas grados, minutos y segundos', 'ETRS Geograficas (4258) GMS');
 INSERT INTO TEMP_COORDINATES_SYSTEMS (epsg, epsg_desc, label, label_advance) VALUES (25831, 'EPSG:25831 - ETRS89 / UTM zone 31N', 'etrs89 catalunya proyectadas (metros)', 'ETRS89 UTM huso 31N (25831)');
+
+-- most current procedure in the controller located
