@@ -1,10 +1,6 @@
 import { Request, Response } from 'express';
 import miPool from '../database/pool';
-
-interface ICoordinates {
-    lon: number,
-    lat: number,
-}
+import oracledb from 'oracledb';
 
 export const getInitialCoords = async  (req: Request, res: Response): Promise<Response> => {
     try {
@@ -13,8 +9,8 @@ export const getInitialCoords = async  (req: Request, res: Response): Promise<Re
             `
             Select * from SEM_CHR_GIS.TEMP_COORDINATES_INITIAL
             `
-        )
-        console.log('number of records in Initial coord table', (await result).rows?.length);
+        );
+        //console.log('number of records in Initial coord table', (await result).rows?.length);
         (await conn).close();
         return res.status(200).json((await result).rows);
 
@@ -30,8 +26,8 @@ export const getCoordSystems = async  (req: Request, res: Response): Promise<Res
             `
             Select * from SEM_CHR_GIS.TEMP_COORDINATES_SYSTEMS
             `
-        )
-        console.log('number of records in CoodSystems table ', (await result).rows?.length);
+        );
+        //console.log('number of records in CoodSystems table ', (await result).rows?.length);
         (await conn).close();
         return res.status(200).json((await result).rows);
 
@@ -47,8 +43,8 @@ export const getTransformedCoords = async  (req: Request, res: Response): Promis
             `
             Select * from SEM_CHR_GIS.TEMP_COORDINATES_TRANSFORMED
             `
-        )
-        console.log('number of records in Transformed coord table', (await result).rows?.length);
+        );
+        //console.log('number of records in Transformed coord table', (await result).rows?.length);
         (await conn).close();
         return res.status(200).json((await result).rows);
 
@@ -75,7 +71,7 @@ export const insertInitialCoords = async (req: Request, res: Response) => {
             },
             { autoCommit: true }
         );
-        console.log("Rows inserted: " + (await result).rowsAffected);  
+        //console.log("Rows inserted: " + (await result).rowsAffected);  
     
         res.json({
             message: 'Initials coord added successfully',
@@ -94,6 +90,9 @@ export const transformCoords = async (req: Request, res: Response) => {
         
         const lon =  pairOfCoords.split(' ')[0];
         const lat =  pairOfCoords.split(' ')[1];
+        const lonFloat =  parseFloat(lon);
+        const latFloat =  parseFloat(lat);
+
         let conn = (await miPool).getConnection();
         (await conn).execute(
             `
@@ -129,31 +128,32 @@ export const transformCoords = async (req: Request, res: Response) => {
                 -- Output the JSON representation
                 DBMS_OUTPUT.PUT_LINE(vJsonRepresentation);
             
-                OUT_MESSAGE := 'SUCCESS';
+                OUT_MESSAGE := 'COORDINATES TRANSFORMATION SUCCESS';
             EXCEPTION
                 WHEN OTHERS THEN
                     DBMS_OUTPUT.PUT_LINE('The occured exception is -: ' || SQLERRM || SQLCODE);
-                    OUT_MESSAGE := 'FAILURE';
+                    OUT_MESSAGE := 'COORDINATES TRANSFORMATION FAILURE';
             END;
             `
         );
         let result = (await conn).execute(
             `BEGIN
-                TransformPointCoodinatesAndStore(:lon, :lat, :selectedsrid);
+                TransformPointCoodinatesAndStore(:pLongitude, :pLatitude, :selectedSrid, :OUT_MESSAGE);
             END;`,
             { 
-                lon : {val: parseInt(lon, 10)}, 
-                lat : {val: parseInt(lat, 10)}, 
-                selectedsrid: {val: parseInt(epsgSelected, 10)}
+                pLongitude : { val: lonFloat }, 
+                pLatitude : { val: latFloat }, 
+                selectedSrid: { val: epsgSelected },
+                OUT_MESSAGE: { dir: oracledb.BIND_OUT, type: oracledb.STRING }
             },
             { autoCommit: true }
         );
         console.log("procedure output :", (await result).outBinds);
     
         res.json({
-            message: 'Initials coord transformed successfully',
+            message: 'Coords transformed successfully',
             body: {
-                coords: { lon, lat }
+                initialCoords: { lon, lat }
             }
         })
     } catch (error) {
