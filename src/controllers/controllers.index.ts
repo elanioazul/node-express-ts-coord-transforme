@@ -7,7 +7,7 @@ export const getInitialCoords = async  (req: Request, res: Response): Promise<Re
         const conn = (await miPool).getConnection();
         const result = (await conn).execute(
             `
-            Select * from SEM_CHR_GIS.TEMP_COORDINATES_INITIAL
+            Select * from SEM_CHR_GIS.COORDINATES_INITIAL
             `
         );
         //console.log('number of records in Initial coord table', (await result).rows?.length);
@@ -24,7 +24,7 @@ export const getCoordSystems = async  (req: Request, res: Response): Promise<Res
         const conn = (await miPool).getConnection();
         const result = (await conn).execute(
             `
-            Select * from SEM_CHR_GIS.TEMP_COORDINATES_SYSTEMS
+            Select * from SEM_CHR_GIS.COORDINATES_SYSTEMS
             `
         );
         //console.log('number of records in CoodSystems table ', (await result).rows?.length);
@@ -41,7 +41,7 @@ export const getTransformedCoords = async  (req: Request, res: Response): Promis
         const conn = (await miPool).getConnection();
         const result = (await conn).execute(
             `
-            Select * from SEM_CHR_GIS.TEMP_COORDINATES_TRANSFORMED
+            Select * from SEM_CHR_GIS.COORDINATES_TRANSFORMED
             `
         );
         //console.log('number of records in Transformed coord table', (await result).rows?.length);
@@ -62,7 +62,7 @@ export const insertInitialCoords = async (req: Request, res: Response) => {
         const lat =  pairOfCoords.split(' ')[1];
         let conn = (await miPool).getConnection();
         let result = (await conn).execute(
-            `INSERT INTO TEMP_COORDINATES_INITIAL VALUES (:ID, :LONGITUDE, :LATITUDE, :SRID)`,
+            `INSERT INTO COORDINATES_INITIAL VALUES (:ID, :LONGITUDE, :LATITUDE, :SRID)`,
             { 
                 ID: { val: null},
                 LONGITUDE : {val: lon}, 
@@ -101,11 +101,9 @@ export const transformCoords = async (req: Request, res: Response) => {
                 pLatitude IN NUMBER,
                 selectedSrid IN NUMBER,
                 OUT_MESSAGE OUT VARCHAR,
-                OUT_LONGITUDE OUT NUMBER,
-                OUT_LATITUDE OUT NUMBER
+                OUT_JSON OUT CLOB
             ) AS
                 vTransformedGeometry SDO_GEOMETRY;
-                vJsonRepresentation VARCHAR2(4000);
                 vOriginalCoordinatesId NUMBER;
             BEGIN
                 -- Create the point geometry with 25831 as target srid
@@ -113,62 +111,57 @@ export const transformCoords = async (req: Request, res: Response) => {
                     SDO_GEOMETRY(2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
                     25831
                 );
-            
-                -- Convert the transformed geometry to JSON
-                vJsonRepresentation := SDO_Util.TO_JSON(vTransformedGeometry);
-            
+
                 -- Store the initial coordinates and the srid selected by the user and get the generated primary key
-                INSERT INTO TEMP_COORDINATES_INITIAL (longitude, latitude, srid)
-                VALUES (pLongitude, pLatitude, selectedSrid)
+                INSERT INTO COORDINATES_INITIAL
+                VALUES (DEFAULT, pLongitude, pLatitude, selectedSrid)
                 RETURNING id INTO vOriginalCoordinatesId;
-                DBMS_OUTPUT.PUT_LINE('This transformation corresponde to the id ' || vOriginalCoordinatesId || ' of TEMP_COORDINATES_INITIAL table');
-            
+
                 -- Store the transformed coordinates, referencing the foreign key also
-                INSERT INTO TEMP_COORDINATES_TRANSFORMED (initial_coordinates_id, longitude, latitude, srid, transformed_geometry)
-                VALUES (vOriginalCoordinatesId, vTransformedGeometry.SDO_POINT.X, vTransformedGeometry.SDO_POINT.Y, vTransformedGeometry.SDO_SRID, vTransformedGeometry);
-            
-                -- Output the JSON representation
-                DBMS_OUTPUT.PUT_LINE(vJsonRepresentation);
-            
+                INSERT INTO COORDINATES_TRANSFORMED
+                VALUES (DEFAULT, vOriginalCoordinatesId, vTransformedGeometry.SDO_POINT.X, vTransformedGeometry.SDO_POINT.Y, vTransformedGeometry.SDO_SRID, vTransformedGeometry);
+
                 -- Set the OUT parameters
                 OUT_MESSAGE := 'COORDINATES TRANSFORMATION SUCCESS';
-                OUT_LONGITUDE := vTransformedGeometry.SDO_POINT.X;
-                OUT_LATITUDE := vTransformedGeometry.SDO_POINT.Y;
+                SELECT JSON_OBJECT(
+                        'initial_point' VALUE json_object('x' VALUE pLongitude, 'y' VALUE pLatitude, 'srid' VALUE selectedSrid),
+                        'transformed_point' VALUE json_object('x' VALUE vTransformedGeometry.SDO_POINT.X, 'y' VALUE vTransformedGeometry.SDO_POINT.Y, 'srid' VALUE vTransformedGeometry.SDO_SRID, 'geojson' VALUE SDO_Util.TO_GEOJSON(vTransformedGeometry))
+                        format json
+                        returning clob
+                ) 
+                INTO OUT_JSON
+                FROM dual;
+                DBMS_OUTPUT.PUT_LINE(OUT_JSON);
             EXCEPTION
                 WHEN OTHERS THEN
                     DBMS_OUTPUT.PUT_LINE('The occured exception is -: ' || SQLERRM || SQLCODE);
                     OUT_MESSAGE := 'COORDINATES TRANSFORMATION FAILURE';
-                    OUT_LONGITUDE := NULL;
-                    OUT_LATITUDE := NULL;
+                    OUT_JSON:= JSON_OBJECT();
             END;
             `
         );
         let result = (await conn).execute(
-            `BEGIN
-                TransformPointCoodinatesAndStore(:pLongitude, :pLatitude, :selectedSrid, :OUT_MESSAGE, :OUT_LONGITUDE, :OUT_LATITUDE);
+            `
+            BEGIN
+                TransformPointCoodinatesAndStore(:pLongitude, :pLatitude, :selectedSrid, :OUT_MESSAGE, :OUT_JSON);
             END;`,
             { 
                 pLongitude : { val: lonFloat }, 
                 pLatitude : { val: latFloat }, 
                 selectedSrid: { val: epsgSelected },
                 OUT_MESSAGE: { dir: oracledb.BIND_OUT, type: oracledb.STRING },
-                OUT_LONGITUDE: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER  },
-                OUT_LATITUDE: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER  }
+                OUT_JSON: { dir: oracledb.BIND_OUT, type: oracledb.CLOB  }
             },
             { autoCommit: true }
         );
         console.log("procedure outputs :", (await result).outBinds);
 
         let proccedureStatus = (await result as any).outBinds.OUT_MESSAGE;
-        let transformedLon = (await result as any).outBinds.OUT_LONGITUDE;
-        let transformedLan = (await result as any).outBinds.OUT_LATITUDE;
+        let procedureOutJson = (await result as any).outBinds.OUT_JSON;
     
         res.json({
             message: proccedureStatus,
-            body: {
-                initialCoords: { lon, lat },
-                trasformedCoors: { transformedLon, transformedLan}
-            }
+            body: procedureOutJson
         })
     } catch (error) {
         console.error('Error inserting data:', error);
