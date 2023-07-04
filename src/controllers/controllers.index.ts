@@ -150,7 +150,7 @@ export const transformCoords = async (req: Request, res: Response) => {
                 pLatitude : { val: latFloat }, 
                 selectedSrid: { val: epsgSelected },
                 OUT_MESSAGE: { dir: oracledb.BIND_OUT, type: oracledb.STRING },
-                OUT_JSON: { dir: oracledb.BIND_OUT, type: oracledb.CLOB  }
+                OUT_JSON: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 5000  }
             },
             { autoCommit: true }
         );
