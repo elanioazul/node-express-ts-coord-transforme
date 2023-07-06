@@ -103,9 +103,13 @@ export const transformCoords = async (req: Request, res: Response) => {
                 OUT_MESSAGE OUT VARCHAR,
                 OUT_JSON OUT CLOB
             ) AS
+                vInitialGeometry SDO_GEOMETRY;
                 vTransformedGeometry SDO_GEOMETRY;
-                vOriginalCoordinatesId NUMBER;
+                vInitialCoordinatesId NUMBER;
             BEGIN
+                -- Create the point geometry with the srid sent by user
+                vInitialGeometry := SDO_GEOMETRY(2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL);
+                
                 -- Create the point geometry with 25831 as target srid
                 vTransformedGeometry := SDO_CS.TRANSFORM(
                     SDO_GEOMETRY(2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
@@ -114,12 +118,12 @@ export const transformCoords = async (req: Request, res: Response) => {
 
                 -- Store the initial coordinates and the srid selected by the user and get the generated primary key
                 INSERT INTO COORDINATES_INITIAL
-                VALUES (DEFAULT, pLongitude, pLatitude, selectedSrid)
-                RETURNING id INTO vOriginalCoordinatesId;
+                VALUES (DEFAULT, pLongitude, pLatitude, selectedSrid, vInitialGeometry)
+                RETURNING id INTO vInitialCoordinatesId;
 
                 -- Store the transformed coordinates, referencing the foreign key also
                 INSERT INTO COORDINATES_TRANSFORMED
-                VALUES (DEFAULT, vOriginalCoordinatesId, vTransformedGeometry.SDO_POINT.X, vTransformedGeometry.SDO_POINT.Y, vTransformedGeometry.SDO_SRID, vTransformedGeometry);
+                VALUES (DEFAULT, vInitialCoordinatesId, vTransformedGeometry.SDO_POINT.X, vTransformedGeometry.SDO_POINT.Y, vTransformedGeometry.SDO_SRID, vTransformedGeometry);
 
                 -- Set the OUT parameters
                 OUT_MESSAGE := 'COORDINATES TRANSFORMATION SUCCESS';
