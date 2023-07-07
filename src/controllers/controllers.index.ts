@@ -56,10 +56,10 @@ export const getTransformedCoords = async  (req: Request, res: Response): Promis
 
 export const insertInitialCoords = async (req: Request, res: Response) => {
     try {
-        const { pairOfCoords } = req.body;
+        const { coords } = req.body;
         
-        const lon =  pairOfCoords.split(' ')[0];
-        const lat =  pairOfCoords.split(' ')[1];
+        const lon =  coords.split(' ')[0];
+        const lat =  coords.split(' ')[1];
         let conn = (await miPool).getConnection();
         let result = (await conn).execute(
             `INSERT INTO COORDINATES_INITIAL VALUES (:ID, :LONGITUDE, :LATITUDE, :SRID)`,
@@ -86,10 +86,10 @@ export const insertInitialCoords = async (req: Request, res: Response) => {
 };
 export const transformCoords = async (req: Request, res: Response) => {
     try {
-        const { pairOfCoords, epsgSelected } = req.body;
+        const { coords, epsgSelected } = req.body;
         
-        const lon =  pairOfCoords.split(' ')[0];
-        const lat =  pairOfCoords.split(' ')[1];
+        const lon =  coords.split(' ')[0];
+        const lat =  coords.split(' ')[1];
         const lonFloat =  parseFloat(lon);
         const latFloat =  parseFloat(lat);
 
