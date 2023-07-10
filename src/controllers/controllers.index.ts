@@ -71,7 +71,6 @@ export const insertInitialCoords = async (req: Request, res: Response) => {
             },
             { autoCommit: true }
         );
-        //console.log("Rows inserted: " + (await result).rowsAffected);  
     
         res.json({
             message: 'Initials coord added successfully',
@@ -87,13 +86,9 @@ export const insertInitialCoords = async (req: Request, res: Response) => {
 export const transformCoords = async (req: Request, res: Response) => {
     try {
         const { coords, epsgSelected } = req.body;
-        
-        const lon =  coords.split(' ')[0];
-        const lat =  coords.split(' ')[1];
-        const lonFloat =  parseFloat(lon);
-        const latFloat =  parseFloat(lat);
 
         let conn = (await miPool).getConnection();
+        //escribo en bd el procedimiento TransformPointCoodinatesAndStore
         (await conn).execute(
             `
             create or replace PROCEDURE TransformPointCoodinatesAndStore(
@@ -144,20 +139,72 @@ export const transformCoords = async (req: Request, res: Response) => {
             END;
             `
         );
-        let result = (await conn).execute(
+        //escribo en bd la funcion FUNCTION DMS_TO_DD
+        (await conn).execute(
             `
-            BEGIN
-                TransformPointCoodinatesAndStore(:pLongitude, :pLatitude, :selectedSrid, :OUT_MESSAGE, :OUT_JSON);
-            END;`,
-            { 
-                pLongitude : { val: lonFloat }, 
-                pLatitude : { val: latFloat }, 
-                selectedSrid: { val: epsgSelected },
-                OUT_MESSAGE: { dir: oracledb.BIND_OUT, type: oracledb.STRING },
-                OUT_JSON: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 5000  }
-            },
-            { autoCommit: true }
+            CREATE OR REPLACE FUNCTION DMS_TO_DD (
+                p_degrees  NUMBER,
+                p_minutes  NUMBER,
+                p_seconds  NUMBER,
+                p_direction VARCHAR2
+              ) RETURN NUMBER IS
+                dd NUMBER;
+              BEGIN
+                -- Convert degrees, minutes, and seconds to decimal degrees
+                dd := p_degrees + (p_minutes / 60) + (p_seconds / 3600);
+              
+                -- Adjust the sign based on the direction (E, W, N, S)
+                IF p_direction = 'W' OR p_direction = 'S' THEN
+                  dd := -dd;
+                END IF;
+
+                RETURN dd;
+
+              END DMS_TO_DD;
+            `
         );
+        let result: any;
+        //caso noDms
+        if (typeof coords === 'string') {
+            const lon =  coords.split(' ')[0];
+            const lat =  coords.split(' ')[1];
+            const lonFloat =  parseFloat(lon);
+            const latFloat =  parseFloat(lat);
+            result = (await conn).execute(
+                `
+                BEGIN
+                    TransformPointCoodinatesAndStore(:pLongitude, :pLatitude, :selectedSrid, :OUT_MESSAGE, :OUT_JSON);
+                END;`,
+                { 
+                    pLongitude : { val: lonFloat }, 
+                    pLatitude : { val: latFloat }, 
+                    selectedSrid: { val: epsgSelected },
+                    OUT_MESSAGE: { dir: oracledb.BIND_OUT, type: oracledb.STRING },
+                    OUT_JSON: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 5000  }
+                },
+                { autoCommit: true }
+            );
+        }
+        //caso Dms
+        if (Array.isArray(coords)) {
+            const long = await transformDmsIntoDD(coords[0][0], coords[0][1], coords[0][2], coords[0][3]);
+            const lat = await transformDmsIntoDD(coords[1][0], coords[1][1], coords[1][2], coords[1][3]);
+            result = (await conn).execute(
+                `
+                BEGIN
+                    TransformPointCoodinatesAndStore(:pLongitude, :pLatitude, :selectedSrid, :OUT_MESSAGE, :OUT_JSON);
+                END;`,
+                { 
+                    pLongitude : { val: long }, 
+                    pLatitude : { val: lat }, 
+                    selectedSrid: { val: epsgSelected },
+                    OUT_MESSAGE: { dir: oracledb.BIND_OUT, type: oracledb.STRING },
+                    OUT_JSON: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 5000  }
+                },
+                { autoCommit: true }
+            );
+        }
+
         console.log("procedure outputs :", (await result).outBinds);
 
         let proccedureStatus = (await result as any).outBinds.OUT_MESSAGE;
@@ -172,3 +219,39 @@ export const transformCoords = async (req: Request, res: Response) => {
     } 
 
 };
+
+async function transformDmsIntoDD (deg: string, min: string, sec: string, direc: string) {
+    let conn: any;
+    try {
+        conn = (await miPool).getConnection();
+        const result = (await conn).execute(
+            `
+            BEGIN
+                :outputParam := DMS_TO_DD(:p_degrees, :p_minutes, :p_seconds, :p_direction);
+            END;
+            `,
+            { 
+                p_degrees : { val: parseInt(deg) }, 
+                p_minutes : { val: parseInt(min) }, 
+                p_seconds: { val: parseInt(sec) },
+                p_direction: { val: direc},
+                outputParam: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+            }
+        );
+        //(await conn).close();
+        //(await conn).commit();
+        return (await result).outBinds.outputParam;
+    }  catch (err) {
+        console.error('Error calling Oracle function:', err);
+        throw err;
+      } finally {
+        if (conn) {
+          try {
+            (await conn).close();
+          } catch (err) {
+            console.error('Error closing database connection:', err);
+          }
+        }
+      }
+
+}
