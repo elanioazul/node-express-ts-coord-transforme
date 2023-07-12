@@ -224,6 +224,9 @@ export const transformCoords = async (req: Request, res: Response) => {
 };
 
 async function transformDmsIntoDD (deg: string, min: string, sec: string, direc: string) {
+    const degFloat =  parseFloat(deg);
+    const minFloat =  parseFloat(min);
+    const secFloat =  parseFloat(sec);
     let conn: any;
     try {
         conn = (await miPool).getConnection();
@@ -234,9 +237,9 @@ async function transformDmsIntoDD (deg: string, min: string, sec: string, direc:
             END;
             `,
             { 
-                p_degrees : { val: parseInt(deg) }, 
-                p_minutes : { val: parseInt(min) }, 
-                p_seconds: { val: parseInt(sec) },
+                p_degrees : { val: degFloat }, 
+                p_minutes : { val: minFloat }, 
+                p_seconds: { val: secFloat },
                 p_direction: { val: direc},
                 outputParam: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
             }
