@@ -7,24 +7,24 @@ TAMPOCO ES NECESARIO LA CREACION DE USUARIO GIS PORQUE YA HAY UNO CREADO DE PRUE
 --docker run -d --name oracle-db -p 1521:1521 -e ORACLE_PWD=test container-registry.oracle.com/database/enterprise:latest
 
 --me conecto (aunque tarda un rato la conexion en hacerse correctamente) con sqldeveloper a la bd que corre el container con:
-USUARIO: SYS as SYSDBA
-CONTRASEÑA: test
-NOMBRE DEL HOST: localhost
-PUERTO: 1521
-NOMBRE DEL SERVICIO: orclpdb1
+-- USUARIO: SYS as SYSDBA
+-- CONTRASEÑA: test
+-- NOMBRE DEL HOST: localhost
+-- PUERTO: 1521
+-- NOMBRE DEL SERVICIO: orclpdb1
 
 
 --hago un script sql para crear nuevo squema (nuevo user) y asi crear nueva conexion
-alter session set "_ORACLE_SCRIPT"=true;
-create user GIS identified by "123" default tablespace users quota unlimited on users;
-grant resource, connect, create table, create session to GIS;
+-- alter session set "_ORACLE_SCRIPT"=true;
+-- create user GIS identified by "123" default tablespace users quota unlimited on users;
+-- grant resource, connect, create table, create session to GIS;
 
 --me conecto con sqldeveloper a dicho nuevo squema con la con los parametros de conexion:
-USUARIO: GIS
-CONTRASEÑA: 123
-NOMBRE DEL HOST: localhost
-PUERTO: 1521
-NOMBRE DEL SERVICIO: orclpdb1
+-- USUARIO: GIS
+-- CONTRASEÑA: 123
+-- NOMBRE DEL HOST: localhost
+-- PUERTO: 1521
+-- NOMBRE DEL SERVICIO: orclpdb1
 
 --hago tablas
 CREATE TABLE COORDINATES_INITIAL (
@@ -102,4 +102,66 @@ INSERT INTO COORDINATES_SYSTEMS VALUES (DEFAULT, 4258, 'EPSG:4258 - ETRS89', 'et
 INSERT INTO COORDINATES_SYSTEMS VALUES (DEFAULT, 4258, 'EPSG:4258 - ETRS89', 'etrs89 geograficas grados, minutos y segundos', 'ETRS Geograficas (4258) GMS', '3º 42'' 36'''' E 40º 26'' 46'''' N');
 INSERT INTO COORDINATES_SYSTEMS VALUES (DEFAULT, 25831, 'EPSG:25831 - ETRS89 / UTM zone 31N', 'etrs89 catalunya proyectadas (metros)', 'ETRS89 UTM huso 31N (25831)', '379615.575691, 4657515.452277');
 
--- most current procedure in the controller located
+-- TransformPointCoodinatesAndStore procedure
+create or replace PROCEDURE TransformPointCoodinatesAndStore(
+    pLongitude IN NUMBER,
+    pLatitude IN NUMBER,
+    selectedSrid IN NUMBER,
+    targetSrid IN NUMBER,
+    OUT_MESSAGE OUT VARCHAR,
+    OUT_JSON OUT CLOB
+) AS
+    vInitialGeometry SDO_GEOMETRY;
+    vTransformedGeometry SDO_GEOMETRY;
+    vInitialCoordinatesId NUMBER;
+BEGIN
+    -- Create the point geometry with the srid sent by user
+    vInitialGeometry := SDO_GEOMETRY(2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL);
+    
+    -- Create the point geometry with 25831 as target srid
+    vTransformedGeometry := SDO_CS.TRANSFORM(
+        SDO_GEOMETRY(2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
+        targetSrid
+    );
+    -- Store the initial coordinates and the srid selected by the user and get the generated primary key
+    INSERT INTO COORDINATES_INITIAL
+    VALUES (DEFAULT, pLongitude, pLatitude, selectedSrid, vInitialGeometry)
+    RETURNING id INTO vInitialCoordinatesId;
+    -- Store the transformed coordinates, referencing the foreign key also
+    INSERT INTO COORDINATES_TRANSFORMED
+    VALUES (DEFAULT, vInitialCoordinatesId, vTransformedGeometry.SDO_POINT.X, vTransformedGeometry.SDO_POINT.Y, vTransformedGeometry.SDO_SRID, vTransformedGeometry);
+    -- Set the OUT parameters
+    OUT_MESSAGE := 'COORDINATES TRANSFORMATION SUCCESS';
+    SELECT JSON_OBJECT(
+            'initial_point' VALUE json_object('x' VALUE pLongitude, 'y' VALUE pLatitude, 'srid' VALUE selectedSrid),
+            'transformed_point' VALUE json_object('x' VALUE vTransformedGeometry.SDO_POINT.X, 'y' VALUE vTransformedGeometry.SDO_POINT.Y, 'srid' VALUE vTransformedGeometry.SDO_SRID, 'geojson' VALUE SDO_Util.TO_GEOJSON(vTransformedGeometry))
+            format json
+            returning clob
+    ) 
+    INTO OUT_JSON
+    FROM dual;
+    DBMS_OUTPUT.PUT_LINE(OUT_JSON);
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('The occured exception is -: ' || SQLERRM || SQLCODE);
+        OUT_MESSAGE := 'COORDINATES TRANSFORMATION FAILURE';
+        OUT_JSON:= JSON_OBJECT();
+END;
+
+-- DMS_to_DD function
+CREATE OR REPLACE FUNCTION DMS_TO_DD (
+    p_degrees  NUMBER,
+    p_minutes  NUMBER,
+    p_seconds  NUMBER,
+    p_direction VARCHAR2
+  ) RETURN NUMBER IS
+    dd NUMBER;
+  BEGIN
+    -- Convert degrees, minutes, and seconds to decimal degrees
+    dd := p_degrees + (p_minutes / 60) + (p_seconds / 3600);
+    -- Adjust the sign based on the direction (E, W, N, S)
+    IF p_direction = 'W' OR p_direction = 'S' THEN
+      dd := -dd;
+    END IF;
+    RETURN dd;
+  END DMS_TO_DD;
