@@ -165,3 +165,31 @@ CREATE OR REPLACE FUNCTION DMS_TO_DD (
     END IF;
     RETURN dd;
   END DMS_TO_DD;
+
+  -- ABSINTERSECTEDBYPOINT procedure
+create or replace PROCEDURE ABSINTERSECTEDBYPOINT (
+    pLongitude IN NUMBER,
+    pLatitude IN NUMBER,
+    selectedSrid IN NUMBER,
+    OUT_MESSAGE OUT VARCHAR,
+    OUT_JSON OUT CLOB
+) AS 
+BEGIN
+    OUT_MESSAGE := 'ABS INTERSECTED SUCCESS';
+    SELECT JSON_ARRAYAGG(
+        json_object( KEY 'codiabs' VALUE CODIABS, KEY 'nomabs' VALUE NOMABS, KEY 'codiss' VALUE CODISS, KEY 'nomss' VALUE NOMSS, KEY 'codirs' VALUE CODIRS, KEY 'nomrs' VALUE NOMRS, KEY 'codiaga' VALUE CODIAGA, KEY 'nomaga' VALUE NOMAGA, KEY 'estat' VALUE ESTAT, KEY 'observacions' VALUE OBSER)
+        format json
+        returning clob
+    ) AS JSON 
+    INTO OUT_JSON
+    FROM SEM_CHR_GIS.abs_2020_etrs89
+    where SDO_anyinteract(
+        SDO_GEOMETRY( 2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
+        geom) = 'TRUE';
+    DBMS_OUTPUT.PUT_LINE(OUT_JSON);
+    EXCEPTION
+        WHEN OTHERS THEN
+            DBMS_OUTPUT.PUT_LINE('The occured exception is -: ' || SQLERRM || SQLCODE);
+            OUT_MESSAGE := 'ABS INTERSECTED FAILURE';
+            OUT_JSON:= JSON_OBJECT();
+END ABSINTERSECTEDBYPOINT;
