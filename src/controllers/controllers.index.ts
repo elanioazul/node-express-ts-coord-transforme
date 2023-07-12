@@ -95,6 +95,7 @@ export const transformCoords = async (req: Request, res: Response) => {
                 pLongitude IN NUMBER,
                 pLatitude IN NUMBER,
                 selectedSrid IN NUMBER,
+                targetSrid IN NUMBER,
                 OUT_MESSAGE OUT VARCHAR,
                 OUT_JSON OUT CLOB
             ) AS
@@ -108,7 +109,7 @@ export const transformCoords = async (req: Request, res: Response) => {
                 -- Create the point geometry with 25831 as target srid
                 vTransformedGeometry := SDO_CS.TRANSFORM(
                     SDO_GEOMETRY(2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
-                    25831
+                    targetSrid
                 );
 
                 -- Store the initial coordinates and the srid selected by the user and get the generated primary key
@@ -173,12 +174,13 @@ export const transformCoords = async (req: Request, res: Response) => {
             result = (await conn).execute(
                 `
                 BEGIN
-                    TransformPointCoodinatesAndStore(:pLongitude, :pLatitude, :selectedSrid, :OUT_MESSAGE, :OUT_JSON);
+                    TransformPointCoodinatesAndStore(:pLongitude, :pLatitude, :selectedSrid, :targetSrid, :OUT_MESSAGE, :OUT_JSON);
                 END;`,
                 { 
                     pLongitude : { val: lonFloat }, 
                     pLatitude : { val: latFloat }, 
                     selectedSrid: { val: epsgSelected },
+                    targetSrid: { val: '25831'},
                     OUT_MESSAGE: { dir: oracledb.BIND_OUT, type: oracledb.STRING },
                     OUT_JSON: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 5000  }
                 },
@@ -192,12 +194,13 @@ export const transformCoords = async (req: Request, res: Response) => {
             result = (await conn).execute(
                 `
                 BEGIN
-                    TransformPointCoodinatesAndStore(:pLongitude, :pLatitude, :selectedSrid, :OUT_MESSAGE, :OUT_JSON);
+                    TransformPointCoodinatesAndStore(:pLongitude, :pLatitude, :selectedSrid, :targetSrid, :OUT_MESSAGE, :OUT_JSON);
                 END;`,
                 { 
                     pLongitude : { val: long }, 
                     pLatitude : { val: lat }, 
                     selectedSrid: { val: epsgSelected },
+                    targetSrid: { val: '25831'},
                     OUT_MESSAGE: { dir: oracledb.BIND_OUT, type: oracledb.STRING },
                     OUT_JSON: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 5000  }
                 },
