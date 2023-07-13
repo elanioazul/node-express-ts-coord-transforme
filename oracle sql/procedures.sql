@@ -196,7 +196,7 @@ END ABSINTERSECTEDBYPOINT;
 
 
 -- CHECK_INTERSECTION_WITH_CATALUNYAFRANJA function
-CREATE OR REPLACE FUNCTION CHECK_INTERSECTION_WITH_CATALUNYAFRANJA(
+CREATE OR REPLACE FUNCTION CHECK_INTERSECTION_WITH_CAT(
     p_longitude NUMBER,
     p_latitude NUMBER,
     p_srid NUMBER
@@ -218,3 +218,204 @@ BEGIN
     END IF;
 END;
 /
+
+  -- ADMINDIVISIONINFO_ESP procedure
+create or replace PROCEDURE ADMINDIVISIONINFO_ESP (
+    pLongitude IN NUMBER,
+    pLatitude IN NUMBER,
+    selectedSrid IN NUMBER,
+    OUT_MESSAGE OUT VARCHAR,
+    OUT_JSON OUT CLOB
+) AS 
+BEGIN
+    OUT_MESSAGE := 'ADMINDIVISIONINFO_ESP SUCCESS';
+    SELECT JSON_ARRAYAGG(
+        json_object( KEY 'localadmin_id' VALUE LOCALADMIN_ID, KEY 'localadmin' VALUE LOCALADMIN, KEY 'region_id' VALUE REGION_ID, KEY 'region' VALUE REGION, KEY 'country_id' VALUE COUNTRY_ID, KEY 'country' VALUE country)
+        format json
+        returning clob
+    ) AS JSON 
+    INTO OUT_JSON
+    FROM SEM_CHR_GIS.localadmin_esp_etrs89
+    where SDO_anyinteract(
+        SDO_GEOMETRY( 2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
+        geom) = 'TRUE';
+    DBMS_OUTPUT.PUT_LINE(OUT_JSON);
+    EXCEPTION
+        WHEN OTHERS THEN
+            DBMS_OUTPUT.PUT_LINE('The occured exception is -: ' || SQLERRM || SQLCODE);
+            OUT_MESSAGE := 'ADMINDIVISIONINFO_ESP FAILURE';
+            OUT_JSON:= JSON_OBJECT();
+END ADMINDIVISIONINFO_ESP;
+
+-- ADMINDIVISIONINFO_ESP_2 procedure
+create or replace PROCEDURE ADMINDIVISIONINFO_ESP_2 (
+    pLongitude IN NUMBER,
+    pLatitude IN NUMBER,
+    selectedSrid IN NUMBER,
+    OUT_MESSAGE OUT VARCHAR,
+    OUT_JSON OUT CLOB
+) AS 
+BEGIN
+    OUT_MESSAGE := 'ADMINDIVISIONINFO_ESP SUCCESS';
+    SELECT json_object(
+        'localadmin_id' VALUE SEM_CHR_GIS.localadmin_esp_etrs89.LOCALADMIN_ID,
+        'localadmin' VALUE SEM_CHR_GIS.localadmin_esp_etrs89.LOCALADMIN,
+        'region_id' VALUE SEM_CHR_GIS.localadmin_esp_etrs89.REGION_ID,
+        'region' VALUE SEM_CHR_GIS.localadmin_esp_etrs89.REGION,
+        'country_id' VALUE SEM_CHR_GIS.localadmin_esp_etrs89.COUNTRY_ID,
+        'country' VALUE SEM_CHR_GIS.localadmin_esp_etrs89.country
+        format json
+        returning clob
+    ) AS JSON 
+    INTO OUT_JSON
+    FROM SEM_CHR_GIS.localadmin_esp_etrs89
+    where SDO_anyinteract(
+        SDO_GEOMETRY( 2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
+        geom) = 'TRUE';
+    DBMS_OUTPUT.PUT_LINE(OUT_JSON);
+    EXCEPTION
+        WHEN OTHERS THEN
+            DBMS_OUTPUT.PUT_LINE('The occured exception is -: ' || SQLERRM || SQLCODE);
+            OUT_MESSAGE := 'ADMINDIVISIONINFO_ESP FAILURE';
+            OUT_JSON:= JSON_OBJECT();
+END ADMINDIVISIONINFO_ESP_2;
+
+-- ADMINDIVISIONINFO_ESP_3 procedure
+create or replace PROCEDURE ADMINDIVISIONINFO_ESP_3 (
+    pLongitude IN NUMBER,
+    pLatitude IN NUMBER,
+    selectedSrid IN NUMBER,
+    OUT_MESSAGE OUT VARCHAR,
+    OUT_JSON OUT CLOB
+) AS 
+BEGIN
+    OUT_MESSAGE := 'ADMINDIVISIONINFO_ESP SUCCESS';
+    SELECT json_object(
+        'localadmin' VALUE json_object(
+            'id' VALUE SEM_CHR_GIS.localadmin_esp_etrs89.LOCALADMIN_ID,
+            'localadmin' VALUE SEM_CHR_GIS.localadmin_esp_etrs89.LOCALADMIN
+        ),
+        'region' VALUE json_object(
+            'id' VALUE SEM_CHR_GIS.localadmin_esp_etrs89.REGION_ID,
+            'region' VALUE SEM_CHR_GIS.localadmin_esp_etrs89.REGION
+        ),
+        'country' VALUE json_object(
+            'id' VALUE SEM_CHR_GIS.localadmin_esp_etrs89.COUNTRY_ID,
+            'country' VALUE SEM_CHR_GIS.localadmin_esp_etrs89.COUNTRY
+        )
+    ) INTO OUT_JSON
+    FROM SEM_CHR_GIS.localadmin_esp_etrs89
+    where SDO_anyinteract(
+        SDO_GEOMETRY( 2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
+        geom) = 'TRUE';
+    DBMS_OUTPUT.PUT_LINE(OUT_JSON);
+    EXCEPTION
+        WHEN OTHERS THEN
+            DBMS_OUTPUT.PUT_LINE('The occured exception is -: ' || SQLERRM || SQLCODE);
+            OUT_MESSAGE := 'ADMINDIVISIONINFO_ESP FAILURE';
+            OUT_JSON:= JSON_OBJECT();
+END ADMINDIVISIONINFO_ESP_3;
+
+  -- ADMINDIVISIONINFO_CAT procedure
+create or replace PROCEDURE ADMINDIVISIONINFO_CAT (
+    pLongitude IN NUMBER,
+    pLatitude IN NUMBER,
+    selectedSrid IN NUMBER,
+    OUT_MESSAGE OUT VARCHAR,
+    OUT_JSON OUT CLOB
+) AS 
+BEGIN
+    OUT_MESSAGE := 'ADMINDIVISIONINFO_CAT SUCCESS';
+    SELECT JSON_ARRAYAGG(
+        json_object( KEY 'localadmin_id' VALUE LOCALADMIN_ID, KEY 'localadmin' VALUE LOCALADMIN, KEY 'macrocounty_id' VALUE MACROCOUNTY, KEY 'macrocounty' VALUE MACROCOUNTY, KEY 'region_id' VALUE REGION_ID, KEY 'region' VALUE REGION, KEY 'country_id' VALUE COUNTRY_ID, KEY 'country' VALUE country)
+        format json
+        returning clob
+    ) AS JSON 
+    INTO OUT_JSON
+    FROM SEM_CHR_GIS.localadmin_cat_etrs89
+    where SDO_anyinteract(
+        SDO_GEOMETRY( 2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
+        geom) = 'TRUE';
+    DBMS_OUTPUT.PUT_LINE(OUT_JSON);
+    EXCEPTION
+        WHEN OTHERS THEN
+            DBMS_OUTPUT.PUT_LINE('The occured exception is -: ' || SQLERRM || SQLCODE);
+            OUT_MESSAGE := 'ADMINDIVISIONINFO_CAT FAILURE';
+            OUT_JSON:= JSON_OBJECT();
+END ADMINDIVISIONINFO_CAT;
+
+-- ADMINDIVISIONINFO_CAT_2 procedure
+create or replace PROCEDURE ADMINDIVISIONINFO_CAT_2 (
+    pLongitude IN NUMBER,
+    pLatitude IN NUMBER,
+    selectedSrid IN NUMBER,
+    OUT_MESSAGE OUT VARCHAR,
+    OUT_JSON OUT CLOB
+) AS 
+BEGIN
+    OUT_MESSAGE := 'ADMINDIVISIONINFO_CAT SUCCESS';
+    SELECT json_object(
+        'localadmin_id' VALUE SEM_CHR_GIS.localadmin_cat_etrs89.LOCALADMIN_ID,
+        'localadmin' VALUE SEM_CHR_GIS.localadmin_cat_etrs89.LOCALADMIN,
+        'macrocounty_id' VALUE SEM_CHR_GIS.localadmin_cat_etrs89.MACROCOUNTY_ID,
+        'macrocounty' VALUE SEM_CHR_GIS.localadmin_cat_etrs89.MACROCOUNTY,
+        'region_id' VALUE SEM_CHR_GIS.localadmin_cat_etrs89.REGION_ID,
+        'region' VALUE SEM_CHR_GIS.localadmin_cat_etrs89.REGION,
+        'country_id' VALUE SEM_CHR_GIS.localadmin_cat_etrs89.COUNTRY_ID,
+        'country' VALUE SEM_CHR_GIS.localadmin_cat_etrs89.country
+        format json
+        returning clob
+    ) AS JSON 
+    INTO OUT_JSON
+    FROM SEM_CHR_GIS.localadmin_cat_etrs89
+    where SDO_anyinteract(
+        SDO_GEOMETRY( 2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
+        geom) = 'TRUE';
+    DBMS_OUTPUT.PUT_LINE(OUT_JSON);
+    EXCEPTION
+        WHEN OTHERS THEN
+            DBMS_OUTPUT.PUT_LINE('The occured exception is -: ' || SQLERRM || SQLCODE);
+            OUT_MESSAGE := 'ADMINDIVISIONINFO_CAT FAILURE';
+            OUT_JSON:= JSON_OBJECT();
+END ADMINDIVISIONINFO_CAT_2;
+
+
+-- ADMINDIVISIONINFO_CAT_3 procedure
+create or replace PROCEDURE ADMINDIVISIONINFO_CAT_3 (
+    pLongitude IN NUMBER,
+    pLatitude IN NUMBER,
+    selectedSrid IN NUMBER,
+    OUT_MESSAGE OUT VARCHAR,
+    OUT_JSON OUT CLOB
+) AS 
+BEGIN
+    OUT_MESSAGE := 'ADMINDIVISIONINFO_CAT SUCCESS';
+    SELECT json_object(
+        'localadmin' VALUE json_object(
+            'id' VALUE SEM_CHR_GIS.localadmin_cat_etrs89.LOCALADMIN_ID,
+            'localadmin' VALUE SEM_CHR_GIS.localadmin_cat_etrs89.LOCALADMIN
+        ),
+        'macrocounty' VALUE json_object(
+            'id' VALUE SEM_CHR_GIS.localadmin_cat_etrs89.MACROCOUNTY_ID,
+            'macrocounty' VALUE SEM_CHR_GIS.localadmin_cat_etrs89.MACROCOUNTY
+        ),
+        'region' VALUE json_object(
+            'id' VALUE SEM_CHR_GIS.localadmin_cat_etrs89.REGION_ID,
+            'region' VALUE SEM_CHR_GIS.localadmin_cat_etrs89.REGION
+        ),
+        'country' VALUE json_object(
+            'id' VALUE SEM_CHR_GIS.localadmin_cat_etrs89.COUNTRY_ID,
+            'country' VALUE SEM_CHR_GIS.localadmin_cat_etrs89.COUNTRY
+        )
+    ) INTO OUT_JSON
+    FROM SEM_CHR_GIS.localadmin_cat_etrs89
+    where SDO_anyinteract(
+        SDO_GEOMETRY( 2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
+        geom) = 'TRUE';
+    DBMS_OUTPUT.PUT_LINE(OUT_JSON);
+    EXCEPTION
+        WHEN OTHERS THEN
+            DBMS_OUTPUT.PUT_LINE('The occured exception is -: ' || SQLERRM || SQLCODE);
+            OUT_MESSAGE := 'ADMINDIVISIONINFO_CAT FAILURE';
+            OUT_JSON:= JSON_OBJECT();
+END ADMINDIVISIONINFO_CAT_3;
