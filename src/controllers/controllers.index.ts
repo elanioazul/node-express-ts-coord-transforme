@@ -223,6 +223,78 @@ export const transformCoords = async (req: Request, res: Response) => {
 
 };
 
+export const intersectAbs = async (req: Request, res: Response) => {
+    try {
+        const { epsg, lon, lat } = req.body;
+        let conn = (await miPool).getConnection();
+    
+        //escribo en bd el procedimiento ABSINTERSECTEDBYPOINT
+        (await conn).execute(
+            `
+            create or replace PROCEDURE ABSINTERSECTEDBYPOINT (
+                pLongitude IN NUMBER,
+                pLatitude IN NUMBER,
+                selectedSrid IN NUMBER,
+                OUT_MESSAGE OUT VARCHAR,
+                OUT_JSON OUT CLOB
+            ) AS 
+            BEGIN
+                OUT_MESSAGE := 'ABS INTERSECTED BY POINT SUCCESS';
+                SELECT JSON_ARRAYAGG(
+                    json_object( KEY 'codiabs' VALUE CODIABS, KEY 'nomabs' VALUE NOMABS, KEY 'codiss' VALUE CODISS, KEY 'nomss' VALUE NOMSS, KEY 'codirs' VALUE CODIRS, KEY 'nomrs' VALUE NOMRS, KEY 'codiaga' VALUE CODIAGA, KEY 'nomaga' VALUE NOMAGA, KEY 'estat' VALUE ESTAT, KEY 'observacions' VALUE OBSER)
+                    format json
+                    returning clob
+                ) AS JSON 
+                INTO OUT_JSON
+                FROM SEM_CHR_GIS.abs_2020_etrs89
+                where SDO_anyinteract(
+                    SDO_GEOMETRY( 2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
+                    geom) = 'TRUE';
+                DBMS_OUTPUT.PUT_LINE(OUT_JSON);
+                EXCEPTION
+                    WHEN OTHERS THEN
+                        DBMS_OUTPUT.PUT_LINE('The occured exception is -: ' || SQLERRM || SQLCODE);
+                        OUT_MESSAGE := 'ABS INTERSECTED BY POINT FAILURE';
+                        OUT_JSON:= JSON_OBJECT();
+            END ABSINTERSECTEDBYPOINT;
+            `
+        );
+    
+        let result: any;
+
+        const lonFloat =  parseFloat(lon);
+        const latFloat =  parseFloat(lat);
+        result = (await conn).execute(
+            `
+            BEGIN
+                ABSINTERSECTEDBYPOINT(:pLongitude, :pLatitude, :selectedSrid, :OUT_MESSAGE, :OUT_JSON);
+            END;`,
+            { 
+                pLongitude : { val: lonFloat }, 
+                pLatitude : { val: latFloat }, 
+                selectedSrid: { val: epsg },
+                OUT_MESSAGE: { dir: oracledb.BIND_OUT, type: oracledb.STRING },
+                OUT_JSON: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 5000  }
+            },
+            { autoCommit: true }
+        );
+
+        console.log("procedure outputs :", (await result).outBinds);
+
+        let proccedureStatus = (await result as any).outBinds.OUT_MESSAGE;
+        let procedureOutJson = (await result as any).outBinds.OUT_JSON;
+    
+        res.json({
+            message: proccedureStatus,
+            body: procedureOutJson
+        })
+        
+    } catch (error) {
+        console.error('Error inserting data:', error);
+    }
+
+}
+
 async function transformDmsIntoDD (deg: string, min: string, sec: string, direc: string) {
     const degFloat =  parseFloat(deg);
     const minFloat =  parseFloat(min);
