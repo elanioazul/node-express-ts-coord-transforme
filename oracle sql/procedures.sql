@@ -218,6 +218,29 @@ BEGIN
     END IF;
 END;
 /
+-- CHECK_INTERSECTION_WITH_NEIGHBOURHOOD_BCN function
+CREATE OR REPLACE FUNCTION CHECK_INTERSECTION_WITH_NEIGHBOURHOOD_BCN(
+    p_longitude NUMBER,
+    p_latitude NUMBER,
+    p_srid NUMBER
+) RETURN NUMBER AS
+    v_result NUMBER;
+BEGIN
+    SELECT COUNT(*)
+    INTO v_result
+    FROM SEM_CHR_GIS.NEIGHBOURHOOD_BCN_ETRS89
+    WHERE SDO_ANYINTERACT(
+        SDO_GEOMETRY(2001, p_srid, SDO_POINT_TYPE(p_longitude, p_latitude, NULL), NULL, NULL),
+        geom
+    ) = 'TRUE';
+
+    IF v_result > 0 THEN
+        RETURN 1;
+    ELSE
+        RETURN 0;
+    END IF;
+END;
+/
 
   -- ADMINDIVISIONINFO_ESP procedure
 create or replace PROCEDURE ADMINDIVISIONINFO_ESP (
