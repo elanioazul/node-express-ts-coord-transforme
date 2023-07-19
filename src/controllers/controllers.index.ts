@@ -95,6 +95,7 @@ export const transformCoords = async (req: Request, res: Response) => {
                 pLongitude IN NUMBER,
                 pLatitude IN NUMBER,
                 selectedSrid IN NUMBER,
+                dmsToddNeeded IN NUMBER,
                 targetSrid IN NUMBER,
                 OUT_MESSAGE OUT VARCHAR,
                 OUT_JSON OUT CLOB
@@ -102,7 +103,14 @@ export const transformCoords = async (req: Request, res: Response) => {
                 vInitialGeometry SDO_GEOMETRY;
                 vTransformedGeometry SDO_GEOMETRY;
                 vInitialCoordinatesId NUMBER;
+                vCoordSystemId NUMBER;
             BEGIN
+                -- Get the COORDINATES_SYSTEMS primary key
+                SELECT ID
+                INTO vCoordSystemId
+                FROM COORDINATES_SYSTEMS
+                WHERE EPSG = selectedSrid AND is_dms = dmsToddneeded;
+
                 -- Create the point geometry with the srid sent by user
                 vInitialGeometry := SDO_GEOMETRY(2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL);
                 
@@ -117,9 +125,9 @@ export const transformCoords = async (req: Request, res: Response) => {
                 VALUES (DEFAULT, pLongitude, pLatitude, selectedSrid, vInitialGeometry)
                 RETURNING id INTO vInitialCoordinatesId;
 
-                -- Store the transformed coordinates, referencing the foreign key also
+                -- Store the transformed coordinates, referencing the foreign keys also
                 INSERT INTO COORDINATES_TRANSFORMED
-                VALUES (DEFAULT, vInitialCoordinatesId, vTransformedGeometry.SDO_POINT.X, vTransformedGeometry.SDO_POINT.Y, vTransformedGeometry.SDO_SRID, vTransformedGeometry);
+                VALUES (DEFAULT, vInitialCoordinatesId, vTransformedGeometry.SDO_POINT.X, vTransformedGeometry.SDO_POINT.Y, vCoordSystemId, vTransformedGeometry);
 
                 -- Set the OUT parameters
                 OUT_MESSAGE := 'COORDINATES TRANSFORMATION SUCCESS';
@@ -174,12 +182,13 @@ export const transformCoords = async (req: Request, res: Response) => {
             result = (await conn).execute(
                 `
                 BEGIN
-                    TransformPointCoodinatesAndStore(:pLongitude, :pLatitude, :selectedSrid, :targetSrid, :OUT_MESSAGE, :OUT_JSON);
+                    TransformPointCoodinatesAndStore(:pLongitude, :pLatitude, :selectedSrid, :dmsToddNeeded, :targetSrid, :OUT_MESSAGE, :OUT_JSON);
                 END;`,
                 { 
                     pLongitude : { val: lonFloat }, 
                     pLatitude : { val: latFloat }, 
                     selectedSrid: { val: epsgSelected },
+                    dmsToddNeeded: { val: 0 },
                     targetSrid: { val: '25831'},
                     OUT_MESSAGE: { dir: oracledb.BIND_OUT, type: oracledb.STRING },
                     OUT_JSON: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 5000  }
@@ -194,12 +203,13 @@ export const transformCoords = async (req: Request, res: Response) => {
             result = (await conn).execute(
                 `
                 BEGIN
-                    TransformPointCoodinatesAndStore(:pLongitude, :pLatitude, :selectedSrid, :targetSrid, :OUT_MESSAGE, :OUT_JSON);
+                    TransformPointCoodinatesAndStore(:pLongitude, :pLatitude, :selectedSrid, :dmsToddNeeded, :targetSrid, :OUT_MESSAGE, :OUT_JSON);
                 END;`,
                 { 
                     pLongitude : { val: long }, 
                     pLatitude : { val: lat }, 
                     selectedSrid: { val: epsgSelected },
+                    dmsToddNeeded: { val: 1 },
                     targetSrid: { val: '25831'},
                     OUT_MESSAGE: { dir: oracledb.BIND_OUT, type: oracledb.STRING },
                     OUT_JSON: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 5000  }
