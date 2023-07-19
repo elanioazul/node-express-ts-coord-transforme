@@ -350,7 +350,7 @@ create or replace PROCEDURE ADMINDIVISIONINFO_CAT (
 BEGIN
     OUT_MESSAGE := 'ADMINDIVISIONINFO_CAT SUCCESS';
     SELECT JSON_ARRAYAGG(
-        json_object( KEY 'localadmin_id' VALUE LOCALADMIN_ID, KEY 'localadmin' VALUE LOCALADMIN, KEY 'macrocounty_id' VALUE MACROCOUNTY, KEY 'macrocounty' VALUE MACROCOUNTY, KEY 'region_id' VALUE REGION_ID, KEY 'region' VALUE REGION, KEY 'country_id' VALUE COUNTRY_ID, KEY 'country' VALUE country)
+        json_object( KEY 'localadmin_id' VALUE LOCALADMIN_ID, KEY 'localadmin' VALUE LOCALADMIN, KEY 'macrocounty_id' VALUE MACROCOUNTY_ID, KEY 'macrocounty' VALUE MACROCOUNTY, KEY 'region_id' VALUE REGION_ID, KEY 'region' VALUE REGION, KEY 'country_id' VALUE COUNTRY_ID, KEY 'country' VALUE country)
         format json
         returning clob
     ) AS JSON 
