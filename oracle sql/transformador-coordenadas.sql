@@ -47,6 +47,9 @@ CREATE TABLE COORDINATES_TRANSFORMED (
 );
 COMMENT ON TABLE "SEM_CHR_GIS"."COORDINATES_TRANSFORMED" IS 'Taula que emmagatzema la referència de les coordenades passades per l''usuari i la seva transformació al sistema de referència de Chronos (25831)';
 
+DROP TABLE "SEM_CHR_GIS"."COORDINATES_SYSTEMS" CASCADE CONSTRAINTS;
+DROP TABLE "SEM_CHR_GIS"."COORDINATES_INITIAL" CASCADE CONSTRAINTS;
+DROP TABLE "SEM_CHR_GIS"."COORDINATES_TRANSFORMED" CASCADE CONSTRAINTS;
 
 create or replace PROCEDURE TransformPointCoodinatesAndStore(
     pLongitude IN NUMBER,
