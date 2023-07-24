@@ -140,3 +140,7 @@ CREATE OR REPLACE FUNCTION DMS_TO_DD (
     END IF;
     RETURN dd;
   END DMS_TO_DD;
+
+DROP PROCEDURE "SEM_CHR_GIS"."TransformPointCoodinatesAndStore";
+DROP PROCEDURE "SEM_CHR_GIS"."get_origin_coord_system_id";
+DROP PROCEDURE "SEM_CHR_GIS"."DMS_TO_DD";
