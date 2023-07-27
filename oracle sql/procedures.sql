@@ -234,63 +234,63 @@ END ABSINTERSECTEDBYPOINT;
 
 -- COUNTRY_INTERSECTED_BY_POINT function
 -- cuando se llame a esta funcion si no devuelve nada (null), es que has pinchado mar
-CREATE OR REPLACE FUNCTION GET_COUNTRY_ID_INTERSECTED_BY_POINT(
+create or replace FUNCTION GET_COUNTRY_ID_INTERSECTED_BY_POINT(
     p_longitude NUMBER,
     p_latitude NUMBER,
     p_srid NUMBER
-) RETURN NUMBER AS
-    v_result NUMBER;
+) RETURN VARCHAR2 AS
+    v_result VARCHAR2(200);
 BEGIN
-    SELECT ID
+    SELECT TARGET_TABLE
     INTO v_result
     FROM SEM_CHR_GIS.COUNTRY_ETRS89
     WHERE SDO_ANYINTERACT(
         SDO_GEOMETRY(2001, p_srid, SDO_POINT_TYPE(p_longitude, p_latitude, NULL), NULL, NULL),
         geom
-    ) = 'TRUE';
+    ) = 'TRUE' ORDER BY PRIORITY ASC FETCH NEXT 1 ROWS ONLY;
 
     RETURN v_result;
 
     EXCEPTION
         WHEN NO_DATA_FOUND THEN
-            v_result := NULL;
+            DBMS_OUTPUT.PUT_LINE('It does not intersect any country, probably derived from a scale/generalization topology gap or because water has been intersected');
+            v_result := 'AGUA';
             RETURN v_result;
 END;
 
-CREATE OR REPLACE PROCEDURE ADMINDIVISION_INTERSECTION (
+create or replace PROCEDURE ADMINDIVISION_INTERSECTION (
     pLongitude IN NUMBER,
     pLatitude IN NUMBER,
     selectedSrid IN NUMBER,
     GLOBAL_OUT_MESAGE OUT VARCHAR,
     GLOBL_OUT_JSON OUT CLOB
 ) AS
-    country_id NUMBER;
+    target_country  VARCHAR2(200);
     local_out_json CLOB;
-    local_out_mesage VARCHAR2(100);
+    local_out_mesage VARCHAR2(200);
 BEGIN
-    --GLOBAL_OUT_MESAGE := 'ADMINDIVISION_INTERSECTION SUCCESS';
-    country_id := GET_COUNTRY_ID_INTERSECTED_BY_POINT(pLongitude, pLatitude, selectedSrid);
+    target_country := GET_COUNTRY_ID_INTERSECTED_BY_POINT(pLongitude, pLatitude, selectedSrid);
     CASE 
-        WHEN country_id = 2 THEN
+        WHEN target_country = 'LOCALADMIN_CAT_ETRS89' THEN
             CASE
                 WHEN CHECK_INTERSECTION_WITH_CAT(pLongitude, pLatitude, selectedSrid) = 1 AND CHECK_INTERSECTION_WITH_NEIGHBOURHOOD_BCN(pLongitude, pLatitude, selectedSrid) = 1 THEN
-                    ADMINDIVISION_NEIGHBOURHOOD_BCN(pLongitude, pLatitude, selectedSrid, local_out_json, local_out_mesage);
+                    ADMINDIVISION_NEIGHBOURHOOD_BCN(pLongitude, pLatitude, selectedSrid, local_out_mesage, local_out_json);
                 WHEN CHECK_INTERSECTION_WITH_CAT(pLongitude, pLatitude, selectedSrid) = 1 AND CHECK_INTERSECTION_WITH_NEIGHBOURHOOD_BCN(pLongitude, pLatitude, selectedSrid) = 0 THEN
-                    ADMINDIVISION_CAT(pLongitude, pLatitude, selectedSrid, local_out_json, local_out_mesage);
+                    ADMINDIVISION_CAT(pLongitude, pLatitude, selectedSrid, local_out_mesage, local_out_json);
                 ELSE
                     --en este caso no hay procedimiento que rellene ambas variables por lo que se rellenan aqui
-                    local_out_mesage := 'ADMINDIVISION_INTERSECTION FAILURE, POINT THAT WAS PASSED IS IN A GEOMETRY TOPOLOGY GAP';
+                    local_out_mesage := 'POINT THAT WAS PASSED IS IN A GEOMETRY TOPOLOGY GAP';
                     local_out_json := JSON_OBJECT();
             END CASE;
-        WHEN country_id = 1 THEN
-            ADMINDIVISION_AND(pLongitude, pLatitude, selectedSrid, local_out_json, local_out_mesage);
-        WHEN country_id = 7 THEN
-            ADMINDIVISION_FRA(pLongitude, pLatitude, selectedSrid, local_out_json, local_out_mesage);
-        WHEN country_id = 3 OR country_id = 4 OR country_id = 5 OR country_id = 6 THEN
-            ADMINDIVISION_ESP(pLongitude, pLatitude, selectedSrid, local_out_json, local_out_mesage);
-        WHEN country_id = NULL THEN
+        WHEN target_country = 'LOCALADMIN_AND_ETRS89' THEN
+            ADMINDIVISION_AND(pLongitude, pLatitude, selectedSrid, local_out_mesage, local_out_json);
+        WHEN target_country = 'LOCALADMIN_FRA_ETRS89' THEN
+            ADMINDIVISION_FRA(pLongitude, pLatitude, selectedSrid, local_out_mesage, local_out_json);
+        WHEN target_country = 'LOCALADMIN_ESP_ETRS89' THEN
+            ADMINDIVISION_ESP(pLongitude, pLatitude, selectedSrid, local_out_mesage, local_out_json);
+        WHEN target_country = 'AGUA' THEN
             --en este caso no hay procedimiento que rellene ambas variables por lo que se rellenan aqui
-            local_out_mesage := 'ADMINDIVISION_INTERSECTION FAILURE, POINT THAT WAS PASSED DOES NOT INTERSECT EMERGED LAND OR THE POINT IS IN A GEOMETRY TOPOLOGY GAP';
+            local_out_mesage := 'POINT THAT WAS PASSED DOES NOT INTERSECT EMERGED LAND OR THE POINT IS IN A GEOMETRY TOPOLOGY GAP';
             local_out_json := JSON_OBJECT();
         ELSE
             --en este caso no hay procedimiento que rellene ambas variables por lo que se rellenan aqui
@@ -298,17 +298,8 @@ BEGIN
             local_out_json := JSON_OBJECT();
     END CASE;
 
-    IF local_out_json IS NOT NULL THEN
-        DBMS_OUTPUT.PUT_LINE('eeeeeeeeeeh, escribo desde procedimiento padre y el local_out_json está lleno');
-        DBMS_OUTPUT.PUT_LINE('CLOB data: ' || local_out_json);
-    ELSE
-        DBMS_OUTPUT.PUT_LINE('eeeeeeeeeeh, escribo desde procedimiento padre y el local_out_json está vacio');
-    END IF;
-
     GLOBL_OUT_JSON := local_out_json;
     GLOBAL_OUT_MESAGE := local_out_mesage;
-    DBMS_OUTPUT.PUT_LINE('GLOBL_OUT_JSON =>' || GLOBL_OUT_JSON );
-    DBMS_OUTPUT.PUT_LINE('GLOBAL_OUT_MESAGE => ' || GLOBAL_OUT_MESAGE);
 
     EXCEPTION
         WHEN OTHERS THEN
@@ -372,7 +363,6 @@ create or replace PROCEDURE ADMINDIVISION_ESP (
     OUT_MESSAGE OUT VARCHAR,
     OUT_JSON OUT CLOB
 ) AS 
-    clob_size NUMBER;
 BEGIN
     OUT_MESSAGE := 'ADMINDIVISION_ESP SUCCESS';
     SELECT json_object(
@@ -406,8 +396,6 @@ BEGIN
         SDO_GEOMETRY( 2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
         geom) = 'TRUE';
     DBMS_OUTPUT.PUT_LINE(OUT_JSON);
-    clob_size := DBMS_LOB.GETLENGTH(OUT_JSON);
-    DBMS_OUTPUT.PUT_LINE('ADMINDIVISION_ESP clob_size is: ' || clob_size || 'megabytes');
     EXCEPTION
         WHEN OTHERS THEN
             DBMS_OUTPUT.PUT_LINE('The occured exception is -: ' || SQLERRM || SQLCODE);
@@ -424,7 +412,6 @@ create or replace PROCEDURE ADMINDIVISION_CAT (
     OUT_MESSAGE OUT VARCHAR,
     OUT_JSON OUT CLOB
 ) AS 
-    clob_size NUMBER;
 BEGIN
     OUT_MESSAGE := 'ADMINDIVISION_CAT SUCCESS';
     SELECT json_object(
@@ -458,8 +445,6 @@ BEGIN
         SDO_GEOMETRY( 2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
         geom) = 'TRUE';
     DBMS_OUTPUT.PUT_LINE(OUT_JSON);
-    clob_size := DBMS_LOB.GETLENGTH(OUT_JSON);
-    DBMS_OUTPUT.PUT_LINE('ADMINDIVISION_CAT clob_size is: ' || clob_size || 'megabytes');
     EXCEPTION
         WHEN OTHERS THEN
             DBMS_OUTPUT.PUT_LINE('The occured exception is -: ' || SQLERRM || SQLCODE);
@@ -475,7 +460,6 @@ create or replace PROCEDURE ADMINDIVISION_FRA (
     OUT_MESSAGE OUT VARCHAR,
     OUT_JSON OUT CLOB
 ) AS 
-    clob_size NUMBER;
 BEGIN
     OUT_MESSAGE := 'ADMINDIVISION_FRA SUCCESS';
     SELECT json_object(
@@ -524,7 +508,6 @@ create or replace PROCEDURE ADMINDIVISION_AND (
     OUT_MESSAGE OUT VARCHAR,
     OUT_JSON OUT CLOB
 ) AS 
-    clob_size NUMBER;
 BEGIN
     OUT_MESSAGE := 'ADMINDIVISION_AND SUCCESS';
     SELECT json_object(
@@ -558,8 +541,6 @@ BEGIN
         SDO_GEOMETRY( 2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
         geom) = 'TRUE';
     DBMS_OUTPUT.PUT_LINE(OUT_JSON);
-    clob_size := DBMS_LOB.GETLENGTH(OUT_JSON);
-    DBMS_OUTPUT.PUT_LINE('ADMINDIVISION_AND clob_size is: ' || clob_size || 'megabytes');
     EXCEPTION
         WHEN OTHERS THEN
             DBMS_OUTPUT.PUT_LINE('The occured exception is -: ' || SQLERRM || SQLCODE);
@@ -576,7 +557,6 @@ create or replace PROCEDURE ADMINDIVISION_NEIGHBOURHOOD_BCN (
     OUT_MESSAGE OUT VARCHAR,
     OUT_JSON OUT CLOB
 ) AS 
-    clob_size NUMBER;
 BEGIN
     OUT_MESSAGE := 'ADMINDIVISION_NEIGHBOURHOOD_BCN SUCCESS';
     SELECT json_object(
@@ -610,8 +590,6 @@ BEGIN
         SDO_GEOMETRY( 2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
         geom) = 'TRUE';
     DBMS_OUTPUT.PUT_LINE(OUT_JSON);
-    clob_size := DBMS_LOB.GETLENGTH(OUT_JSON);
-    DBMS_OUTPUT.PUT_LINE('ADMINDIVISION_NEIGHBOURHOOD_BCN clob_size is: ' || clob_size || 'megabytes');
     EXCEPTION
         WHEN OTHERS THEN
             DBMS_OUTPUT.PUT_LINE('The occured exception is -: ' || SQLERRM || SQLCODE);
