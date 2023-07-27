@@ -252,6 +252,48 @@ export const transformCoords = async (req: Request, res: Response) => {
 
 };
 
+export const intersectAdminCapas = async (req: Request, res: Response) => {
+    try {
+        const { epsg, lon, lat } = req.body;
+        let conn = (await miPool).getConnection();
+    
+        //voy a probar a no escribir en bbdd ninguno de los procedimientos necesarios, 
+        //si no que ya están alli y sólo llamo al padre(ADMINDIVISION_INTERSECTION)
+    
+        let result: any;
+
+        const lonFloat =  parseFloat(lon);
+        const latFloat =  parseFloat(lat);
+        result = (await conn).execute(
+            `
+            BEGIN
+                ADMINDIVISION_INTERSECTION(:pLongitude, :pLatitude, :selectedSrid, :OUT_MESSAGE, :OUT_JSON);
+            END;`,
+            { 
+                pLongitude : { val: lonFloat }, 
+                pLatitude : { val: latFloat }, 
+                selectedSrid: { val: epsg },
+                OUT_MESSAGE: { dir: oracledb.BIND_OUT, type: oracledb.STRING },
+                OUT_JSON: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 5000  }
+            },
+            { autoCommit: true }
+        );
+
+        console.log("procedure outputs :", (await result).outBinds);
+
+        let proccedureStatus = (await result as any).outBinds.OUT_MESSAGE;
+        let procedureOutJson = (await result as any).outBinds.OUT_JSON;
+    
+        res.json({
+            message: proccedureStatus,
+            body: procedureOutJson
+        })
+        
+    } catch (error) {
+        console.error('Error inserting data:', error);
+    }
+}
+
 export const intersectAbs = async (req: Request, res: Response) => {
     try {
         const { epsg, lon, lat } = req.body;
