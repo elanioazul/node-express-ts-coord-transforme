@@ -41,7 +41,7 @@ BEGIN
         FROM SEM_CHR_GIS.abs_2020_etrs89
         where SDO_anyinteract(
             SDO_GEOMETRY( 2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
-            geom) = 'TRUE';
+            geom) = 'TRUE' FETCH NEXT 1 ROWS ONLY;
         DBMS_OUTPUT.PUT_LINE(OUT_JSON);
     ELSE
         DBMS_OUTPUT.PUT_LINE('The occured exception is -: ' || SQLERRM || SQLCODE);

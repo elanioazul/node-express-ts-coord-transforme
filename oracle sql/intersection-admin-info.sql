@@ -22,49 +22,49 @@ BEGIN
             RETURN v_result;
 END;
 
-CREATE OR REPLACE FUNCTION CHECK_INTERSECTION_WITH_CAT(
-    p_longitude NUMBER,
-    p_latitude NUMBER,
-    p_srid NUMBER
-) RETURN NUMBER AS
-    v_result NUMBER;
-BEGIN
-    SELECT COUNT(*)
-    INTO v_result
-    FROM SEM_CHR_GIS.LOCALADMIN_CAT_ETRS89
-    WHERE SDO_ANYINTERACT(
-        SDO_GEOMETRY(2001, p_srid, SDO_POINT_TYPE(p_longitude, p_latitude, NULL), NULL, NULL),
-        geom
-    ) = 'TRUE';
+-- CREATE OR REPLACE FUNCTION CHECK_INTERSECTION_WITH_CAT(
+--     p_longitude NUMBER,
+--     p_latitude NUMBER,
+--     p_srid NUMBER
+-- ) RETURN NUMBER AS
+--     v_result NUMBER;
+-- BEGIN
+--     SELECT COUNT(*)
+--     INTO v_result
+--     FROM SEM_CHR_GIS.LOCALADMIN_CAT_ETRS89
+--     WHERE SDO_ANYINTERACT(
+--         SDO_GEOMETRY(2001, p_srid, SDO_POINT_TYPE(p_longitude, p_latitude, NULL), NULL, NULL),
+--         geom
+--     ) = 'TRUE';
 
-    IF v_result > 0 THEN
-        RETURN 1;
-    ELSE
-        RETURN 0;
-    END IF;
-END;
+--     IF v_result > 0 THEN
+--         RETURN 1;
+--     ELSE
+--         RETURN 0;
+--     END IF;
+-- END;
 
-CREATE OR REPLACE FUNCTION CHECK_INTERSECTION_WITH_NEIGHBOURHOOD_BCN(
-    p_longitude NUMBER,
-    p_latitude NUMBER,
-    p_srid NUMBER
-) RETURN NUMBER AS
-    v_result NUMBER;
-BEGIN
-    SELECT COUNT(*)
-    INTO v_result
-    FROM SEM_CHR_GIS.NEIGHBOURHOOD_BCN_ETRS89
-    WHERE SDO_ANYINTERACT(
-        SDO_GEOMETRY(2001, p_srid, SDO_POINT_TYPE(p_longitude, p_latitude, NULL), NULL, NULL),
-        geom
-    ) = 'TRUE';
+-- CREATE OR REPLACE FUNCTION CHECK_INTERSECTION_WITH_NEIGHBOURHOOD_BCN(
+--     p_longitude NUMBER,
+--     p_latitude NUMBER,
+--     p_srid NUMBER
+-- ) RETURN NUMBER AS
+--     v_result NUMBER;
+-- BEGIN
+--     SELECT COUNT(*)
+--     INTO v_result
+--     FROM SEM_CHR_GIS.NEIGHBOURHOOD_BCN_ETRS89
+--     WHERE SDO_ANYINTERACT(
+--         SDO_GEOMETRY(2001, p_srid, SDO_POINT_TYPE(p_longitude, p_latitude, NULL), NULL, NULL),
+--         geom
+--     ) = 'TRUE';
 
-    IF v_result > 0 THEN
-        RETURN 1;
-    ELSE
-        RETURN 0;
-    END IF;
-END;
+--     IF v_result > 0 THEN
+--         RETURN 1;
+--     ELSE
+--         RETURN 0;
+--     END IF;
+-- END;
 
 create or replace PROCEDURE ADMINDIVISION_ESP (
     pLongitude IN NUMBER,
@@ -104,7 +104,7 @@ BEGIN
     FROM SEM_CHR_GIS.localadmin_esp_etrs89
     where SDO_anyinteract(
         SDO_GEOMETRY( 2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
-        geom) = 'TRUE';
+        geom) = 'TRUE' FETCH NEXT 1 ROWS ONLY;
     DBMS_OUTPUT.PUT_LINE(OUT_JSON);
     EXCEPTION
         WHEN OTHERS THEN
@@ -151,7 +151,7 @@ BEGIN
     FROM SEM_CHR_GIS.localadmin_cat_etrs89
     where SDO_anyinteract(
         SDO_GEOMETRY( 2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
-        geom) = 'TRUE';
+        geom) = 'TRUE' FETCH NEXT 1 ROWS ONLY;
     DBMS_OUTPUT.PUT_LINE(OUT_JSON);
     EXCEPTION
         WHEN OTHERS THEN
@@ -198,7 +198,7 @@ BEGIN
     FROM SEM_CHR_GIS.localadmin_fra_etrs89
     where SDO_anyinteract(
         SDO_GEOMETRY( 2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
-        geom) = 'TRUE';
+        geom) = 'TRUE' FETCH NEXT 1 ROWS ONLY;
     DBMS_OUTPUT.PUT_LINE(OUT_JSON);
     EXCEPTION
         WHEN OTHERS THEN
@@ -245,7 +245,7 @@ BEGIN
     FROM SEM_CHR_GIS.localadmin_and_etrs89
     where SDO_anyinteract(
         SDO_GEOMETRY( 2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
-        geom) = 'TRUE';
+        geom) = 'TRUE' FETCH NEXT 1 ROWS ONLY;
     DBMS_OUTPUT.PUT_LINE(OUT_JSON);
     EXCEPTION
         WHEN OTHERS THEN
@@ -292,7 +292,7 @@ BEGIN
     FROM SEM_CHR_GIS.neighbourhood_bcn_etrs89
     where SDO_anyinteract(
         SDO_GEOMETRY( 2001, selectedSrid, SDO_POINT_TYPE(pLongitude, pLatitude, NULL), NULL, NULL),
-        geom) = 'TRUE';
+        geom) = 'TRUE' FETCH NEXT 1 ROWS ONLY;
     DBMS_OUTPUT.PUT_LINE(OUT_JSON);
     EXCEPTION
         WHEN OTHERS THEN
@@ -314,17 +314,10 @@ create or replace PROCEDURE ADMINDIVISION_INTERSECTION (
 BEGIN
     target_country := GET_COUNTRY_ID_INTERSECTED_BY_POINT(pLongitude, pLatitude, selectedSrid);
     CASE 
+        WHEN target_country = 'NEIGHBOURHOOD_BCN_ETRS89' THEN
+            ADMINDIVISION_NEIGHBOURHOOD_BCN(pLongitude, pLatitude, selectedSrid, local_out_mesage, local_out_json);
         WHEN target_country = 'LOCALADMIN_CAT_ETRS89' THEN
-            CASE
-                WHEN CHECK_INTERSECTION_WITH_CAT(pLongitude, pLatitude, selectedSrid) = 1 AND CHECK_INTERSECTION_WITH_NEIGHBOURHOOD_BCN(pLongitude, pLatitude, selectedSrid) = 1 THEN
-                    ADMINDIVISION_NEIGHBOURHOOD_BCN(pLongitude, pLatitude, selectedSrid, local_out_mesage, local_out_json);
-                WHEN CHECK_INTERSECTION_WITH_CAT(pLongitude, pLatitude, selectedSrid) = 1 AND CHECK_INTERSECTION_WITH_NEIGHBOURHOOD_BCN(pLongitude, pLatitude, selectedSrid) = 0 THEN
-                    ADMINDIVISION_CAT(pLongitude, pLatitude, selectedSrid, local_out_mesage, local_out_json);
-                ELSE
-                    --en este caso no hay procedimiento que rellene ambas variables por lo que se rellenan aqui
-                    local_out_mesage := 'POINT THAT WAS PASSED IS IN A GEOMETRY TOPOLOGY GAP';
-                    local_out_json := JSON_OBJECT();
-            END CASE;
+            ADMINDIVISION_CAT(pLongitude, pLatitude, selectedSrid, local_out_mesage, local_out_json);
         WHEN target_country = 'LOCALADMIN_AND_ETRS89' THEN
             ADMINDIVISION_AND(pLongitude, pLatitude, selectedSrid, local_out_mesage, local_out_json);
         WHEN target_country = 'LOCALADMIN_FRA_ETRS89' THEN
@@ -333,7 +326,7 @@ BEGIN
             ADMINDIVISION_ESP(pLongitude, pLatitude, selectedSrid, local_out_mesage, local_out_json);
         WHEN target_country = 'AGUA' THEN
             --en este caso no hay procedimiento que rellene ambas variables por lo que se rellenan aqui
-            local_out_mesage := 'POINT THAT WAS PASSED DOES NOT INTERSECT EMERGED LAND OR THE POINT IS IN A GEOMETRY TOPOLOGY GAP';
+            local_out_mesage := 'POINT DOES NOT INTERSECT EMERGED LAND OR THE POINT IS IN A SCALE/GENERALIZATION TOPOLOGY GAP BETWEEN DATA SOURCES';
             local_out_json := JSON_OBJECT();
         ELSE
             --en este caso no hay procedimiento que rellene ambas variables por lo que se rellenan aqui
