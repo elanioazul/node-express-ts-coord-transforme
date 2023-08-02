@@ -22,50 +22,6 @@ BEGIN
             RETURN v_result;
 END;
 
--- CREATE OR REPLACE FUNCTION CHECK_INTERSECTION_WITH_CAT(
---     p_longitude NUMBER,
---     p_latitude NUMBER,
---     p_srid NUMBER
--- ) RETURN NUMBER AS
---     v_result NUMBER;
--- BEGIN
---     SELECT COUNT(*)
---     INTO v_result
---     FROM SEM_CHR_GIS.LOCALADMIN_CAT_ETRS89
---     WHERE SDO_ANYINTERACT(
---         SDO_GEOMETRY(2001, p_srid, SDO_POINT_TYPE(p_longitude, p_latitude, NULL), NULL, NULL),
---         geom
---     ) = 'TRUE';
-
---     IF v_result > 0 THEN
---         RETURN 1;
---     ELSE
---         RETURN 0;
---     END IF;
--- END;
-
--- CREATE OR REPLACE FUNCTION CHECK_INTERSECTION_WITH_NEIGHBOURHOOD_BCN(
---     p_longitude NUMBER,
---     p_latitude NUMBER,
---     p_srid NUMBER
--- ) RETURN NUMBER AS
---     v_result NUMBER;
--- BEGIN
---     SELECT COUNT(*)
---     INTO v_result
---     FROM SEM_CHR_GIS.NEIGHBOURHOOD_BCN_ETRS89
---     WHERE SDO_ANYINTERACT(
---         SDO_GEOMETRY(2001, p_srid, SDO_POINT_TYPE(p_longitude, p_latitude, NULL), NULL, NULL),
---         geom
---     ) = 'TRUE';
-
---     IF v_result > 0 THEN
---         RETURN 1;
---     ELSE
---         RETURN 0;
---     END IF;
--- END;
-
 create or replace PROCEDURE ADMINDIVISION_ESP (
     pLongitude IN NUMBER,
     pLatitude IN NUMBER,
@@ -343,3 +299,11 @@ BEGIN
             GLOBL_OUT_JSON := 'An error occurred: ' || SQLERRM;
             GLOBAL_OUT_MESAGE := 'ADMINDIVISION_INTERSECTION FAILURE';
 END;
+
+DROP PROCEDURE "SEM_CHR_GIS"."ADMINDIVISION_ESP";
+DROP PROCEDURE "SEM_CHR_GIS"."ADMINDIVISION_CAT";
+DROP PROCEDURE "SEM_CHR_GIS"."ADMINDIVISION_FRA";
+DROP PROCEDURE "SEM_CHR_GIS"."ADMINDIVISION_AND";
+DROP PROCEDURE "SEM_CHR_GIS"."ADMINDIVISION_NEIGHBOURHOOD_BCN";
+DROP PROCEDURE "SEM_CHR_GIS"."ADMINDIVISION_INTERSECTION";
+DROP FUNCTION "SEM_CHR_GIS"."GET_COUNTRY_ID_INTERSECTED_BY_POINT";
