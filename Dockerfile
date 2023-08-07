@@ -1,14 +1,3 @@
-# FROM node:18.16.0-alpine
-# WORKDIR /app
-# COPY package*.json ./
-# RUN npm install
-# COPY . .
-# COPY .env .env
-# RUN npm run build
-# EXPOSE 4000
-# CMD ["npm","start"]
-
-
 # Stage 1: Build the TypeScript app
 FROM node:18.16.0-alpine as build
 
@@ -19,6 +8,9 @@ COPY package*.json ./
 
 RUN npm install
 
+# Copy the .env file to the working directory
+COPY .env .env
+
 # Copy the rest of the application code
 COPY . .
 
@@ -26,6 +18,15 @@ RUN npm run build
 
 # Stage 2: Run the built JavaScript app
 FROM node:18.16.0-alpine
+
+# Set environment variables for OracleDB connection load by .env file
+ARG DB_SID
+ARG DB_DOMAIN
+ARG DB_PORT
+ARG DB_PASSWD
+ARG DB_BUNDLE
+ARG DB_USER
+ARG DB_SCHEMA
 
 WORKDIR /usr/src/app
 
@@ -39,14 +40,5 @@ RUN npm install --only=production
 
 # Expose the port
 EXPOSE 4000
-
-# Set environment variables for OracleDB connection
-ENV DB_SID=ORCLPDBQAS
-ENV DB_DOMAIN=20.105.170.70
-ENV DB_PORT=1521
-ENV DB_PASSWD=P@$$word1234
-ENV DB_BUNDLE=basic
-ENV DB_USER=SEM_CHR_GIS
-ENV DB_SCHEMA=docker_oracle
 
 CMD ["node", "./dist/index.js"]
