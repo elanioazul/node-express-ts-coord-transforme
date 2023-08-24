@@ -45,7 +45,7 @@ CREATE TABLE COORDINATES_TRANSFORMED (
     CONSTRAINT FK_COORDINATES_SYSTEM FOREIGN KEY (srid)
         REFERENCES COORDINATES_SYSTEMS (ID)
 );
-COMMENT ON TABLE "SEM_CHR_GIS"."COORDINATES_TRANSFORMED" IS 'Taula que emmagatzema la referència de les coordenades passades per l''usuari i la seva transformació al sistema de referència de Chronos (25831)';
+COMMENT ON TABLE "SEM_CHR_GIS"."COORDINATES_TRANSFORMED" IS 'Taula que emmagatzema la referència de les coordenades passades per l''usuari i la seva transformació al sistema de referència de Chronos';
 
 DROP TABLE "SEM_CHR_GIS"."COORDINATES_SYSTEMS" CASCADE CONSTRAINTS;
 DROP TABLE "SEM_CHR_GIS"."COORDINATES_INITIAL" CASCADE CONSTRAINTS;
@@ -118,6 +118,7 @@ CREATE OR REPLACE FUNCTION get_origin_coord_system_id(
 BEGIN
     SELECT ID INTO vCoordSystemId
     FROM COORDINATES_SYSTEMS
+    -- is_dms helps to distinguish between two possible options within the 4326 and 4258 srid codes
     WHERE EPSG = srid AND is_dms = dmsToddneeded;
 
     RETURN vCoordSystemId;

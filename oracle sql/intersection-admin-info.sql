@@ -5,9 +5,11 @@ create or replace FUNCTION GET_COUNTRY_ID_INTERSECTED_BY_POINT(
 ) RETURN VARCHAR2 AS
     v_result VARCHAR2(200);
 BEGIN
+    -- catch the target table name that parent procedure (ADMINDIVISION_INTERSECTION) will use to select which child procedure to use
     SELECT TARGET_TABLE
     INTO v_result
     FROM SEM_CHR_GIS.COUNTRY_ETRS89
+    -- uses here the oracle spatial ANYINTERACT relation but the resault is ordered by the PRIORITY field (solution proposed by Javi for the possible mistakes of country geometry overlapings/gaps due to different scales used in original country datasets)
     WHERE SDO_ANYINTERACT(
         SDO_GEOMETRY(2001, p_srid, SDO_POINT_TYPE(p_longitude, p_latitude, NULL), NULL, NULL),
         geom
@@ -31,6 +33,7 @@ create or replace PROCEDURE ADMINDIVISION_ESP (
 ) AS 
 BEGIN
     OUT_MESSAGE := 'ADMINDIVISION_ESP SUCCESS';
+    -- create output json by analyzing the oracle spatial anyinteract relation between a point and the underlaying polygon layer and based on the underlaying table attributes
     SELECT json_object(
         'country' VALUE SEM_CHR_GIS.localadmin_esp_etrs89.country,
         'countryId' VALUE SEM_CHR_GIS.localadmin_esp_etrs89.COUNTRY_ID,
@@ -78,6 +81,7 @@ create or replace PROCEDURE ADMINDIVISION_CAT (
 ) AS 
 BEGIN
     OUT_MESSAGE := 'ADMINDIVISION_CAT SUCCESS';
+    -- create output json by analyzing the oracle spatial anyinteract relation between a point and the underlaying polygon layer and based on the underlaying table attributes
     SELECT json_object(
         'country' VALUE SEM_CHR_GIS.localadmin_cat_etrs89.country,
         'countryId' VALUE SEM_CHR_GIS.localadmin_cat_etrs89.COUNTRY_ID,
@@ -125,6 +129,7 @@ create or replace PROCEDURE ADMINDIVISION_FRA (
 ) AS 
 BEGIN
     OUT_MESSAGE := 'ADMINDIVISION_FRA SUCCESS';
+    -- create output json by analyzing the oracle spatial anyinteract relation between a point and the underlaying polygon layer and based on the underlaying table attributes
     SELECT json_object(
         'country' VALUE SEM_CHR_GIS.localadmin_fra_etrs89.country,
         'countryId' VALUE SEM_CHR_GIS.localadmin_fra_etrs89.COUNTRY_ID,
@@ -172,6 +177,7 @@ create or replace PROCEDURE ADMINDIVISION_AND (
 ) AS 
 BEGIN
     OUT_MESSAGE := 'ADMINDIVISION_AND SUCCESS';
+    -- create output json by analyzing the oracle spatial anyinteract relation between a point and the underlaying polygon layer and based on the underlaying table attributes
     SELECT json_object(
         'country' VALUE SEM_CHR_GIS.localadmin_and_etrs89.country,
         'countryId' VALUE SEM_CHR_GIS.localadmin_and_etrs89.COUNTRY_ID,
@@ -219,6 +225,7 @@ create or replace PROCEDURE ADMINDIVISION_NEIGHBOURHOOD_BCN (
 ) AS 
 BEGIN
     OUT_MESSAGE := 'ADMINDIVISION_NEIGHBOURHOOD_BCN SUCCESS';
+    -- create output json by analyzing the oracle spatial anyinteract relation between a point and the underlaying polygon layer and based on the underlaying table attributes
     SELECT json_object(
         'country' VALUE SEM_CHR_GIS.neighbourhood_bcn_etrs89.country,
         'countryId' VALUE SEM_CHR_GIS.neighbourhood_bcn_etrs89.COUNTRY_ID,
@@ -268,6 +275,7 @@ create or replace PROCEDURE ADMINDIVISION_INTERSECTION (
     local_out_json CLOB;
     local_out_mesage VARCHAR2(200);
 BEGIN
+    -- get the target table to determine what child procedure will bring the data
     target_country := GET_COUNTRY_ID_INTERSECTED_BY_POINT(pLongitude, pLatitude, selectedSrid);
     CASE 
         WHEN target_country = 'NEIGHBOURHOOD_BCN_ETRS89' THEN
