@@ -52,7 +52,7 @@ BEGIN
     ELSE
         DBMS_OUTPUT.PUT_LINE('The occured exception is -: ' || SQLERRM || SQLCODE);
         OUT_MESSAGE := 'Coordinates passed do not intersect ABS layer';
-        OUT_JSON:= JSON_OBJECT();
+        OUT_JSON:= '[{''codiabs'':''999'',''nomabs'':''Desconegut'',''codiss'':''7843'',''nomss'':''Desconegut'',''codirs'':''999'',''nomrs'':''Desconegut'',''codiaga'':''999'',''nomaga'':''Desconegut'',''estat'':''Desconegut'',''observacions'':null}]';
     END IF;
 
     EXCEPTION
