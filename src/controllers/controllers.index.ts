@@ -41,7 +41,7 @@ export const getTransformedCoords = async  (req: Request, res: Response): Promis
         const conn = (await miPool).getConnection();
         const result = (await conn).execute(
             `
-            Select * from SEM_CHR_GIS.COORDINATES_TRANSFORMED
+            Select id,initial_coordinates_id,longitude,latitude,srid from SEM_CHR_GIS.COORDINATES_TRANSFORMED
             `
         );
         //console.log('number of records in Transformed coord table', (await result).rows?.length);
