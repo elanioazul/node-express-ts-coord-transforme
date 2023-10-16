@@ -511,48 +511,33 @@ END;
 
 
 
-
---Evolucion definitivo metiendo EXCEPCION cuando no recusos encontrados + chequeo de srids:
-CREATE OR REPLACE FUNCTION GET_RESOURCES_WITHIN_DISTANCE_ORDER_BY_DISTANCE (
+--FINAL
+create or replace FUNCTION count_resources (
     latitude NUMBER,
     longitude NUMBER,
     distance NUMBER,
     unit VARCHAR,
-    selectedSrid NUMBER,
-    resourcesSrid NUMBER
-) RETURN CLOB
-IS
-    suggestedResources CLOB;
+    srid NUMBER
+) RETURN NUMBER AS
     suggestedResourcesCount NUMBER;
 BEGIN
-    -- Define a subquery to count rows that meet the criteria
     SELECT COUNT(*)
     INTO suggestedResourcesCount
     FROM (
         SELECT
-            r.resources_id,
-            r.tiporecurso,
-            r.matricula,
-            r.bastidor,
-            r.coordx,
-            r.coordy,
-            SDO_GEOM.SDO_DISTANCE(
-                SDO_GEOMETRY(2001, resourcesSrid, SDO_POINT_TYPE(longitude, latitude, NULL), NULL, NULL),
-                SDO_GEOMETRY(2001, resourcesSrid, SDO_POINT_TYPE(r.coordx, r.coordy, NULL), NULL, NULL),
-                0.005
-            ) AS distance
+            r.resources_id
         FROM RESOURCES r
         WHERE SDO_WITHIN_DISTANCE(
             SDO_GEOMETRY(
                 2001,
-                selectedSrid,
+                srid,
                 SDO_POINT_TYPE(longitude, latitude, NULL),
                 NULL,
                 NULL
             ),
             SDO_GEOMETRY(
                 2001,
-                resourcesSrid,
+                srid,
                 SDO_POINT_TYPE(r.coordx, r.coordy, NULL),
                 NULL,
                 NULL
@@ -560,42 +545,66 @@ BEGIN
             'distance=' || distance || ' unit=' || unit
         ) = 'TRUE'
     );
+    RETURN suggestedResourcesCount;
+END;
 
-    IF suggestedResourcesCount = 0 THEN
-        -- Raise a NO_DATA_FOUND exception
+
+
+
+CREATE OR REPLACE PROCEDURE RESOURCES_BY_RADIO (
+    latitude IN NUMBER,
+    longitude IN NUMBER,
+    distance IN NUMBER,
+    unit IN VARCHAR,
+    selectedSrid IN NUMBER,
+    resourcesSrid IN NUMBER,
+    suggestedResources OUT CLOB
+) AS
+    vGeometry SDO_GEOMETRY;
+    outCount NUMBER;
+BEGIN
+    suggestedResources:= '[]';
+
+    IF selectedSrid <> resourcesSrid THEN
+        vGeometry := SDO_CS.TRANSFORM(
+            SDO_GEOMETRY(2001, selectedSrid, SDO_POINT_TYPE(longitude, latitude, NULL), NULL, NULL),
+            resourcesSrid
+        );
+    ELSE
+        vGeometry := SDO_GEOMETRY(2001, resourcesSrid, SDO_POINT_TYPE(longitude, latitude, NULL), NULL, NULL);
+    END IF;
+
+    outCount := count_resources(vGeometry.SDO_POINT.Y, vGeometry.SDO_POINT.X, distance, unit, resourcesSrid);
+
+    IF outCount = 0 THEN
         RAISE NO_DATA_FOUND;
     ELSE
-        -- Retrieve the JSON result when data is found
         SELECT JSON_ARRAYAGG(
             JSON_OBJECT(
                 'resources_id' VALUE resources_id,
                 'tiporecurso' VALUE tiporecurso,
-                'matricula' VALUE matricula,
-                'bastidor' VALUE bastidor,
                 'coordx' VALUE coordx,
                 'coordy' VALUE coordy,
                 'distance' VALUE distance
-            ) RETURNING CLOB)
+            ) ORDER BY distance ASC RETURNING CLOB)
         INTO suggestedResources
         FROM (
             SELECT
                 r.resources_id,
                 r.tiporecurso,
-                r.matricula,
-                r.bastidor,
                 r.coordx,
                 r.coordy,
                 SDO_GEOM.SDO_DISTANCE(
-                    SDO_GEOMETRY(2001, resourcesSrid, SDO_POINT_TYPE(longitude, latitude, NULL), NULL, NULL),
-                    SDO_GEOMETRY(2001, resourcesSrid, SDO_POINT_TYPE(r.coordx, r.coordy, NULL), NULL, NULL),
+                    SDO_GEOMETRY(2001, vGeometry.SDO_SRID, SDO_POINT_TYPE(vGeometry.SDO_POINT.X, vGeometry.SDO_POINT.Y, NULL), NULL, NULL),
+                    SDO_GEOMETRY(2001, vGeometry.SDO_SRID, SDO_POINT_TYPE(r.coordx, r.coordy, NULL), NULL, NULL),
                     0.005
                 ) AS distance
             FROM RESOURCES r
-            WHERE SDO_WITHIN_DISTANCE(
+            WHERE SDO_WITHIN_DISTANCE( --se podría pasar aqui resourcesSrid y vGeometry.SDO_POINT.X & vGeometry.SDO_POINT.Y en vez del punto original
                 SDO_GEOMETRY(
                     2001,
-                    selectedSrid,
-                    SDO_POINT_TYPE(longitude, latitude, NULL),
+                    vGeometry.SDO_SRID,
+                    SDO_POINT_TYPE(vGeometry.SDO_POINT.X, vGeometry.SDO_POINT.Y, NULL),
                     NULL,
                     NULL
                 ),
@@ -608,15 +617,11 @@ BEGIN
                 ),
                 'distance=' || distance || ' unit=' || unit
             ) = 'TRUE'
-        ) ORDER BY distance;
+        );
     END IF;
-
     DBMS_OUTPUT.PUT_LINE(suggestedResources);
-
-    RETURN suggestedResources;
 EXCEPTION
-    -- Handle the NO_DATA_FOUND exception by returning an empty array
     WHEN NO_DATA_FOUND THEN
         DBMS_OUTPUT.PUT_LINE('No resources found within the given radius.');
-        RETURN '[]';
+        NULL;
 END;
