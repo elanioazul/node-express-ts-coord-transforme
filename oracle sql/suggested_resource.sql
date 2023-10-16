@@ -600,7 +600,7 @@ BEGIN
                     0.005
                 ) AS distance
             FROM RESOURCES r
-            WHERE SDO_WITHIN_DISTANCE( --se podría pasar aqui resourcesSrid y vGeometry.SDO_POINT.X & vGeometry.SDO_POINT.Y en vez del punto original
+            WHERE SDO_WITHIN_DISTANCE(
                 SDO_GEOMETRY(
                     2001,
                     vGeometry.SDO_SRID,
