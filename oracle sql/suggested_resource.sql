@@ -44,6 +44,7 @@ CREATE OR REPLACE PROCEDURE RESOURCES_BY_RADIO (
     unit IN VARCHAR,
     selectedSrid IN NUMBER,
     resourcesSrid IN NUMBER,
+    targetSrid IN NUMBER,
     suggestedResources OUT CLOB
 ) AS
     vGeometry SDO_GEOMETRY;
@@ -78,8 +79,14 @@ BEGIN
             SELECT
                 r.resources_id,
                 r.tiporecurso,
-                r.coordx,
-                r.coordy,
+                SDO_CS.TRANSFORM(
+                    SDO_GEOMETRY(2001, resourcesSrid, SDO_POINT_TYPE(r.coordx, r.coordy, NULL), NULL, NULL),
+                    targetSrid
+                ).SDO_POINT.X AS coordx,
+                SDO_CS.TRANSFORM(
+                    SDO_GEOMETRY(2001, resourcesSrid, SDO_POINT_TYPE(r.coordx, r.coordy, NULL), NULL, NULL),
+                    targetSrid
+                ).SDO_POINT.Y AS coordy,
                 SDO_GEOM.SDO_DISTANCE(
                     SDO_GEOMETRY(2001, vGeometry.SDO_SRID, SDO_POINT_TYPE(vGeometry.SDO_POINT.X, vGeometry.SDO_POINT.Y, NULL), NULL, NULL),
                     SDO_GEOMETRY(2001, vGeometry.SDO_SRID, SDO_POINT_TYPE(r.coordx, r.coordy, NULL), NULL, NULL),
