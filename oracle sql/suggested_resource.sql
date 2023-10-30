@@ -48,9 +48,18 @@ CREATE OR REPLACE PROCEDURE RESOURCES_BY_RADIO (
     suggestedResources OUT CLOB
 ) AS
     vGeometry SDO_GEOMETRY;
+    outDistanceUnit VARCHAR (10);
     outCount NUMBER;
 BEGIN
     suggestedResources:= '[]';
+    
+    IF unit = 'KILOMETER' THEN
+        outDistanceUnit := 'unit=KM';
+    ELSIF unit = 'METER' THEN
+        outDistanceUnit := 'unit=M';
+    ELSE
+        outDistanceUnit := 'unit=M';
+    END IF;
 
     IF selectedSrid <> resourcesSrid THEN
         vGeometry := SDO_CS.TRANSFORM(
@@ -90,7 +99,8 @@ BEGIN
                 SDO_GEOM.SDO_DISTANCE(
                     SDO_GEOMETRY(2001, vGeometry.SDO_SRID, SDO_POINT_TYPE(vGeometry.SDO_POINT.X, vGeometry.SDO_POINT.Y, NULL), NULL, NULL),
                     SDO_GEOMETRY(2001, vGeometry.SDO_SRID, SDO_POINT_TYPE(r.coordx, r.coordy, NULL), NULL, NULL),
-                    0.005
+                    0.005,
+                    outDistanceUnit
                 ) AS distance
             FROM RESOURCES r
             WHERE SDO_WITHIN_DISTANCE(
